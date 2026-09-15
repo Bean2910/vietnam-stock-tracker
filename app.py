@@ -320,50 +320,150 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                 st.warning(ml_result["error"])
             else:
                 all_models_dict = ml_result.get("models", {})
-                available_models = list(all_models_dict.keys())
+                future_dates = ml_result.get("future_dates", [])
 
-                # Bộ lọc tùy chọn hiển thị các mô hình
-                st.markdown("#### 🎯 Tùy Chọn Mô Hình Hiển Thị:")
-                selected_models = st.multiselect(
-                    "Tích chọn các mô hình bạn muốn so sánh trên biểu đồ:",
-                    options=available_models,
-                    default=available_models,
-                    placeholder="Chọn ít nhất 1 mô hình...",
-                )
+                # 1. BỘ CHỌN MÔ HÌNH TRỰC QUAN BẰNG CHECKBOX
+                st.markdown("#### 🎯 Tùy Chọn Các Mô Hình Muốn Đối Chiếu:")
+                
+                c_btn1, c_btn2, _ = st.columns([1, 1, 4])
+                select_all = c_btn1.button("✅ Chọn Tất Cả", key="sel_all_models")
+                reset_btn = c_btn2.button("🔄 Mặc Định", key="reset_models")
 
-                # Thẻ đánh giá đồng thuận xu hướng
-                c_view = ml_result.get("consensus_view", "")
-                if "TĂNG" in c_view:
-                    st.success(f"📈 **{c_view}**: {ml_result.get('consensus_desc')}")
-                elif "GIẢM" in c_view:
-                    st.error(f"📉 **{c_view}**: {ml_result.get('consensus_desc')}")
+                # Trạng thái mặc định hoặc lưu session
+                if select_all:
+                    st.session_state["cb_gb"] = True
+                    st.session_state["cb_rf"] = True
+                    st.session_state["cb_tech"] = True
+                    st.session_state["cb_mc"] = True
+                    st.session_state["cb_cs"] = True
+                elif reset_btn:
+                    st.session_state["cb_gb"] = True
+                    st.session_state["cb_rf"] = True
+                    st.session_state["cb_tech"] = True
+                    st.session_state["cb_mc"] = True
+                    st.session_state["cb_cs"] = True
+
+                mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                sel_gb = mc1.checkbox("🟣 Gradient Boosting (AI)", value=st.session_state.get("cb_gb", True), key="cb_gb")
+                sel_rf = mc2.checkbox("🟢 Random Forest", value=st.session_state.get("cb_rf", True), key="cb_rf")
+                sel_tech = mc3.checkbox("🟠 Quán Tính Kỹ Thuật", value=st.session_state.get("cb_tech", True), key="cb_tech")
+                sel_mc = mc4.checkbox("🟡 Monte Carlo (Cơ Sở)", value=st.session_state.get("cb_mc", True), key="cb_mc")
+                sel_cs = mc5.checkbox("🔵 Đồng Thuận Tổng Hợp", value=st.session_state.get("cb_cs", True), key="cb_cs")
+
+                # Danh sách các mô hình được người dùng tích chọn
+                selected_models = []
+                if sel_gb and "Gradient Boosting (AI)" in all_models_dict:
+                    selected_models.append("Gradient Boosting (AI)")
+                if sel_rf and "Random Forest" in all_models_dict:
+                    selected_models.append("Random Forest")
+                if sel_tech and "Quán Tính Kỹ Thuật" in all_models_dict:
+                    selected_models.append("Quán Tính Kỹ Thuật")
+                if sel_mc and "Monte Carlo (Cơ Sở)" in all_models_dict:
+                    selected_models.append("Monte Carlo (Cơ Sở)")
+                if sel_cs and "Đồng Thuận Tổng Hợp (Consensus)" in all_models_dict:
+                    selected_models.append("Đồng Thuận Tổng Hợp (Consensus)")
+
+                # Nếu chưa chọn gì, tự động bật mô hình Đồng Thuận
+                if not selected_models and "Đồng Thuận Tổng Hợp (Consensus)" in all_models_dict:
+                    selected_models = ["Đồng Thuận Tổng Hợp (Consensus)"]
+                    st.info("💡 Chưa có mô hình nào được tick, hệ thống đang tạm hiển thị mô hình 'Đồng Thuận Tổng Hợp'.")
+
+                st.markdown("---")
+
+                # 2. PHÂN TÍCH SỐ LIỆU ĐA CHIỀU DỰA TRÊN CÁC MÔ HÌNH ĐÃ CHỌN
+                selected_returns = [all_models_dict[m]["expected_return"] for m in selected_models if m in all_models_dict]
+                selected_prices = [all_models_dict[m]["final_price"] for m in selected_models if m in all_models_dict]
+
+                avg_return = float(np.mean(selected_returns)) if selected_returns else 0.0
+                avg_price = float(np.mean(selected_prices)) if selected_prices else quote["price"]
+                best_model = max(selected_models, key=lambda m: all_models_dict[m]["expected_return"])
+                worst_model = min(selected_models, key=lambda m: all_models_dict[m]["expected_return"])
+                spread = all_models_dict[best_model]["expected_return"] - all_models_dict[worst_model]["expected_return"]
+
+                # Hiển thị 4 thẻ KPI tổng hợp từ các mô hình đang chọn
+                kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+                c_sign_avg = "+" if avg_return >= 0 else ""
+                kpi_col1.metric("Giá Kỳ Vọng Trung Bình", f"{avg_price:,.2f} k", f"{c_sign_avg}{avg_return:.2f}%")
+                kpi_col2.metric("Số Mô Hình Đang Đối Chiếu", f"{len(selected_models)}/5 mô hình", "Góc nhìn đa chiều")
+                kpi_col3.metric(f"Lạc Quan Nhất ({best_model.split()[0]})", f"{all_models_dict[best_model]['final_price']:,.2f} k", f"{all_models_dict[best_model]['expected_return']:+.2f}%")
+                kpi_col4.metric(f"Thận Trọng Nhất ({worst_model.split()[0]})", f"{all_models_dict[worst_model]['final_price']:,.2f} k", f"{all_models_dict[worst_model]['expected_return']:+.2f}%")
+
+                # BẢN MÔ TẢ PHÂN TÍCH XU HƯỚNG TỔNG HỢP CHI TIẾT
+                st.markdown("#### 📝 Nhận Định Xu Hướng Tổng Hợp Từ Các Mô Hình Đã Chọn:")
+                
+                # Logic diễn giải xu hướng
+                if avg_return >= 3.0:
+                    trend_headline = "🟢 XU HƯỚNG TĂNG GIÁ MẠNH (STRONG BULLISH)"
+                    trend_color = "success"
+                    action_advice = "Ưu tiên nắm giữ cổ phiếu, canh các nhịp điều chỉnh trong phiên để gia tăng tỷ trọng. Vùng giá chốt lời kỳ vọng hướng tới mốc " + f"**{avg_price:,.2f} k ({avg_price*1000:,.0f} VNĐ)**."
+                elif avg_return >= 0.5:
+                    trend_headline = "🔵 XU HƯỚNG PHỤC HỒI / TĂNG TRƯỞNG NHẸ (MILD BULLISH)"
+                    trend_color = "info"
+                    action_advice = "Dòng tiền có tín hiệu nâng đỡ nhưng chưa quá bứt phá. Phù hợp chiến lược mua gom tích lũy tỷ trọng vừa phải hoặc lướt sóng T+."
+                elif avg_return <= -2.0:
+                    trend_headline = "🔴 XU HƯỚNG ĐIỀU CHỈNH / GIẢM GIÁ (BEARISH)"
+                    trend_color = "error"
+                    action_advice = "Áp lực cung chiếm ưu thế, các mô hình cảnh báo rủi ro rung lắc. Nên chủ động hạ bớt margin hoặc cơ cấu danh mục bảo vệ vốn."
                 else:
-                    st.info(f"⚖️ **{c_view}**: {ml_result.get('consensus_desc')}")
+                    trend_headline = "🟡 XU HƯỚNG ĐI NGANG TÍCH LŨY (SIDEWAYS / CONSOLIDATION)"
+                    trend_color = "warning"
+                    action_advice = "Thị trường đang giằng co tìm điểm cân bằng mới. Nhà đầu tư nên kiên nhẫn quan sát, chờ tín hiệu dòng tiền bùng nổ kèm khối lượng xác nhận."
 
-                # Metric tóm tắt từng mô hình được chọn
-                if selected_models:
-                    model_cols = st.columns(len(selected_models))
-                    for idx, m_name in enumerate(selected_models):
-                        m_info = all_models_dict[m_name]
-                        c_sign = "+" if m_info["expected_return"] >= 0 else ""
-                        model_cols[idx].metric(
-                            label=f"📌 {m_name}",
-                            value=f"{m_info['final_price']:,.2f} k",
-                            delta=f"{c_sign}{m_info['expected_return']:.2f}%",
-                        )
-
-                # Biểu đồ đối chiếu đa chiều
-                if selected_models:
-                    ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym)
-                    st.plotly_chart(ml_fig, use_container_width=True)
+                risk_comment = f"Độ phân kỳ giữa mô hình lạc quan nhất và thận trọng nhất là **{spread:.2f}%**."
+                if spread > 10.0:
+                    risk_comment += " Mức độ phân kỳ khá cao cho thấy cổ phiếu đang ở vùng biến động mạnh, nhà đầu tư nên quản trị tỷ trọng cẩn trọng."
                 else:
-                    st.warning("Vui lòng chọn ít nhất 1 mô hình ở phía trên để hiển thị biểu đồ!")
+                    risk_comment += " Mức độ đồng thuận giữa các mô hình ở mức cao, xác suất xu hướng diễn ra tương đối ổn định."
 
-                # Bảng so sánh chi tiết giữa các mô hình
-                st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên Giữa Các Mô Hình")
-                st.dataframe(pd.DataFrame(ml_result.get("comparison_table", [])), use_container_width=True, hide_index=True)
+                analysis_narrative = f"""
+                **{trend_headline}**
+                - **Mức giá dự phóng bình quân:** `{avg_price:,.2f} k` ({avg_price*1000:,.0f} đ), tương ứng biến động kỳ vọng `{c_sign_avg}{avg_return:.2f}%` sau 5 phiên tới.
+                - **Kịch bản cao nhất:** Mô hình **{best_model}** dự báo giá có thể chạm mốc **{all_models_dict[best_model]['final_price']:,.2f} k** ({all_models_dict[best_model]['expected_return']:+.2f}%).
+                - **Kịch bản bảo thủ:** Mô hình **{worst_model}** nhận định giá ở mức **{all_models_dict[worst_model]['final_price']:,.2f} k** ({all_models_dict[worst_model]['expected_return']:+.2f}%).
+                - **Đánh giá rủi ro & Đồng thuận:** {risk_comment}
+                - **Khuyến nghị hành động:** {action_advice}
+                """
+                if trend_color == "success":
+                    st.success(analysis_narrative)
+                elif trend_color == "error":
+                    st.error(analysis_narrative)
+                elif trend_color == "warning":
+                    st.warning(analysis_narrative)
+                else:
+                    st.info(analysis_narrative)
 
-                # Biểu đồ trọng số chi phối giá
+                # 3. BIỂU ĐỒ ĐỐI CHIẾU ĐA CHIỀU
+                ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym)
+                st.plotly_chart(ml_fig, use_container_width=True)
+
+                # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN THEO CÁC MÔ HÌNH ĐÃ CHỌN
+                st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên (Theo Các Mô Hình Đã Chọn)")
+                
+                dyn_table = []
+                for step_idx in range(len(future_dates)):
+                    step_date = future_dates[step_idx]
+                    row = {
+                        "Phiên": f"T+{step_idx+1}",
+                        "Ngày GD": step_date,
+                    }
+                    step_prices = []
+                    for m_name in selected_models:
+                        if m_name in all_models_dict:
+                            p_val = all_models_dict[m_name]["prices"][step_idx]
+                            row[m_name] = f"{p_val:,.2f} k"
+                            step_prices.append(p_val)
+
+                    if step_prices:
+                        step_avg = float(np.mean(step_prices))
+                        row["Trung Bình Đã Chọn"] = f"{step_avg:,.2f} k"
+                        row["Giá VNĐ Bình Quân"] = f"{step_avg*1000:,.0f} đ"
+                        row["% So Giá Hiện Tại"] = f"{((step_avg - quote['price']) / quote['price'] * 100):+.2f}%"
+
+                    dyn_table.append(row)
+
+                st.dataframe(pd.DataFrame(dyn_table), use_container_width=True, hide_index=True)
+
+                # 5. BIỂU ĐỒ TRỌNG SỐ ĐÓNG GÓP (FEATURE IMPORTANCE)
                 st.markdown("---")
                 fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
                 st.plotly_chart(fi_fig, use_container_width=True)
