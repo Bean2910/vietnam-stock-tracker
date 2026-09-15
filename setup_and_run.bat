@@ -1,26 +1,60 @@
 @echo off
 chcp 65001 >nul
-title Vietnam Stock Tracker - Khởi Động Tự Động
+title Vietnam Stock Tracker - Tự Động Cài Đặt & Khởi Chạy 1-Click
 
 echo ======================================================================
-echo    KHỞI ĐỘNG HỆ THỐNG VIETNAM STOCK TRACKER & AI FORECAST
+echo    KHỞI ĐỘNG HỆ THỐNG VIETNAM STOCK TRACKER & AI FORECAST (1-CLICK)
 echo ======================================================================
 echo.
 
-:: 1. Kiểm tra Python đã cài đặt hay chưa
+:: 1. Kiểm tra Python
 where python >nul 2>nul
 if %errorlevel% neq 0 (
     echo [LỖI] Không tìm thấy Python trên máy tính của bạn!
-    echo Vui lòng cài đặt Python (3.10 - 3.13) từ https://www.python.org/
-    echo Nhớ tích chọn "Add Python to PATH" khi cài đặt.
+    echo Vui lòng cài đặt Python (3.10 - 3.13) từ: https://www.python.org/
+    echo QUAN TRỌNG: Nhớ tích chọn vào ô "Add Python to PATH" khi cài đặt.
     echo.
     pause
     exit /b 1
 )
 
-echo [1/4] Kiểm tra môi trường ảo Python (.venv)...
+:: 2. Kiểm tra mã nguồn (Tự động tải về nếu folder mới tinh chỉ có file bat)
+echo [1/5] Kiểm tra mã nguồn dự án...
+if not exist "app.py" (
+    echo       Phát hiện thư mục mới! Đang tự động tải toàn bộ mã nguồn từ GitHub...
+    where git >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo [LỖI] Máy tính của bạn chưa cài Git!
+        echo Vui lòng tải và cài Git từ: https://git-scm.com/
+        pause
+        exit /b 1
+    )
+    git init >nul 2>nul
+    git remote add origin https://github.com/Bean2910/vietnam-stock-tracker.git >nul 2>nul
+    git fetch origin main --quiet
+    git checkout -f -B main origin/main --quiet
+    if not exist "app.py" (
+        echo [LỖI] Không thể tải mã nguồn từ GitHub. Vui lòng kiểm tra kết nối mạng!
+        pause
+        exit /b 1
+    )
+    echo       -> Đã tải toàn bộ mã nguồn thành công!
+) else (
+    echo       Mã nguồn đã có sẵn. Đang kiểm tra cập nhật mới nhất từ GitHub...
+    where git >nul 2>nul
+    if %errorlevel% equ 0 (
+        git pull origin main --quiet 2>nul
+        echo       -> Đã đồng bộ mã nguồn mới nhất!
+    ) else (
+        echo       -> Đã có mã nguồn, bỏ qua bước cập nhật Git.
+    )
+)
+
+:: 3. Kiểm tra môi trường ảo Python (.venv)
+echo.
+echo [2/5] Kiểm tra môi trường ảo Python (.venv)...
 if not exist ".venv" (
-    echo       Chưa có môi trường ảo. Đang tạo .venv tự động...
+    echo       Đang tự động khởi tạo môi trường ảo .venv...
     python -m venv .venv
     if %errorlevel% neq 0 (
         echo [LỖI] Không thể tạo môi trường ảo .venv!
@@ -32,41 +66,38 @@ if not exist ".venv" (
     echo       -> Môi trường ảo .venv đã sẵn sàng.
 )
 
-:: 2. Kích hoạt môi trường ảo
+:: 4. Kích hoạt môi trường ảo
 call .venv\Scripts\activate.bat
 
-:: 3. Kiểm tra file cấu hình .env
+:: 5. Kiểm tra file cấu hình .env
 echo.
-echo [2/4] Kiểm tra cấu hình .env...
+echo [3/5] Kiểm tra cấu hình môi trường (.env)...
 if not exist ".env" (
     if exist ".env.example" (
-        echo       Đang tạo file .env từ file mẫu .env.example...
         copy .env.example .env >nul
-        echo       -> Đã tạo file .env thành công.
+        echo       -> Đã tự động tạo file cấu hình .env từ .env.example.
     ) else (
-        echo       [Cảnh báo] Không tìm thấy .env.example, bỏ qua bước này.
+        echo       [Bỏ qua] Không tìm thấy file mẫu .env.example.
     )
 ) else (
     echo       -> File cấu hình .env đã sẵn sàng.
 )
 
-:: 4. Cài đặt / cập nhật các thư viện phụ thuộc
+:: 6. Cài đặt / Cập nhật thư viện
 echo.
-echo [3/4] Kiểm tra và cập nhật các thư viện (requirements.txt)...
+echo [4/5] Kiểm tra và cài đặt các thư viện (requirements.txt)...
 python -m pip install --upgrade pip --quiet
-pip install -r requirements.txt --quiet
-if %errorlevel% neq 0 (
-    echo [Cảnh báo] Quá trình cài đặt thư viện gặp lỗi hoặc cần kết nối mạng.
-) else (
-    echo       -> Toàn bộ thư viện đã được cài đặt đầy đủ.
+if exist "requirements.txt" (
+    pip install -r requirements.txt --quiet
+    echo       -> Đã cài đặt đầy đủ tất cả thư viện cần thiết.
 )
 
-:: 5. Khởi chạy Dashboard ứng dụng Streamlit
+:: 7. Khởi chạy Ứng dụng Streamlit Dashboard
 echo.
-echo [4/4] Đang khởi chạy ứng dụng Dashboard Streamlit...
+echo [5/5] Đang khởi chạy ứng dụng Dashboard...
 echo ======================================================================
-echo    Ứng dụng sẽ tự động mở tại trình duyệt: http://localhost:8501
-echo    (Để dừng ứng dụng, nhấn phím Ctrl + C trong cửa sổ này)
+echo    ỨNG DỤNG SẼ TỰ ĐỘNG MỞ TRÊN TRÌNH DUYỆT: http://localhost:8501
+echo    (Để tắt ứng dụng, chỉ cần đóng cửa sổ đen này hoặc bấm Ctrl + C)
 echo ======================================================================
 echo.
 
