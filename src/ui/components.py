@@ -104,7 +104,6 @@ def create_candlestick_chart(
         margin=dict(l=10, r=10, t=30, b=10),
         xaxis_rangeslider_visible=False,
         hovermode="x unified",
-        template="plotly_dark",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
@@ -183,7 +182,6 @@ def create_forecast_chart(
         height=450,
         margin=dict(l=10, r=10, t=50, b=10),
         hovermode="x unified",
-        template="plotly_dark",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
@@ -300,48 +298,31 @@ def create_multi_model_comparison_chart(
     layout_kwargs = dict(
         title=dict(
             text=f"🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá ({ticker}) - {len(future_dates)} Phiên Tới",
-            font=dict(size=16, color="#0f172a", family="sans-serif"),
             x=0.01,
             y=0.98,
         ),
         height=580,
         margin=dict(l=20, r=20, t=65, b=30),
         hovermode="x unified",
-        template="plotly_white",
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="center",
             x=0.5,
-            bgcolor="#f8fafc",
-            bordercolor="#cbd5e1",
-            borderwidth=1,
-            font=dict(size=12, color="#0f172a", family="sans-serif"),
+            bgcolor="rgba(0, 0, 0, 0)",
         ),
         xaxis=dict(
-            title=dict(
-                text="Các Phiên Giao Dịch Dự Báo",
-                font=dict(size=13, color="#1e293b", family="sans-serif"),
-            ),
-            gridcolor="#e2e8f0",
+            title="Các Phiên Giao Dịch Dự Báo",
             showgrid=True,
             tickangle=0,
-            tickfont=dict(size=13, color="#0f172a", family="sans-serif"),
             zeroline=False,
         ),
         yaxis=dict(
-            title=dict(
-                text="Mức Giá Dự Báo (nghìn VNĐ)",
-                font=dict(size=13, color="#1e293b", family="sans-serif"),
-            ),
-            gridcolor="#e2e8f0",
+            title="Mức Giá Dự Báo (nghìn VNĐ)",
             showgrid=True,
             zeroline=False,
             tickformat=",.2f",
-            tickfont=dict(size=12, color="#0f172a", family="sans-serif"),
         ),
     )
 
@@ -387,7 +368,6 @@ def create_feature_importance_chart(feature_importance: List[Dict[str, Any]]) ->
         height=320,
         margin=dict(l=10, r=10, t=40, b=10),
         xaxis_title="Tỷ lệ đóng góp (%)",
-        template="plotly_dark",
     )
     return fig
 
