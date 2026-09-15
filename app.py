@@ -389,29 +389,80 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
                     # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN (THEO CÁC MÔ HÌNH ĐÃ CHỌN)
                     st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên (Theo Các Mô Hình Đang Bật)")
-                    dyn_table = []
+                    base_p = quote["price"]
+
+                    def _fmt_price_cell(p_val, base_val, suffix=" k"):
+                        diff = round(p_val - base_val, 2)
+                        if diff > 0.001:
+                            return f'<span style="color: #16a34a; font-weight: 700;">▲ {p_val:,.2f}{suffix}</span>'
+                        elif diff < -0.001:
+                            return f'<span style="color: #dc2626; font-weight: 700;">▼ {p_val:,.2f}{suffix}</span>'
+                        else:
+                            # Không đổi: không thêm dấu gì, chữ màu vàng đất nhạt (Light Ochre / Khaki / Sand Gold)
+                            return f'<span style="color: #c2944b; font-weight: 700;">{p_val:,.2f}{suffix}</span>'
+
+                    def _fmt_vnd_cell(p_val, base_val):
+                        diff = round(p_val - base_val, 2)
+                        vnd = p_val * 1000
+                        if diff > 0.001:
+                            return f'<span style="color: #16a34a; font-weight: 700;">▲ {vnd:,.0f} đ</span>'
+                        elif diff < -0.001:
+                            return f'<span style="color: #dc2626; font-weight: 700;">▼ {vnd:,.0f} đ</span>'
+                        else:
+                            return f'<span style="color: #c2944b; font-weight: 700;">{vnd:,.0f} đ</span>'
+
+                    def _fmt_pct_cell(p_val, base_val):
+                        diff = round(p_val - base_val, 2)
+                        pct = (p_val - base_val) / base_val * 100
+                        if diff > 0.001:
+                            return f'<span style="color: #16a34a; font-weight: 700;">▲ +{pct:.2f}%</span>'
+                        elif diff < -0.001:
+                            return f'<span style="color: #dc2626; font-weight: 700;">▼ {pct:.2f}%</span>'
+                        else:
+                            return f'<span style="color: #c2944b; font-weight: 700;">0.00%</span>'
+
+                    valid_models = [m for m in selected_models if m in all_models_dict]
+                    tbl_headers = ["Phiên", "Ngày GD"] + valid_models + ["Trung Bình Đã Chọn", "Giá VNĐ Bình Quân", "% So Giá T0"]
+
+                    html_rows = []
                     for step_idx in range(len(future_dates)):
                         step_date = future_dates[step_idx]
-                        row = {
-                            "Phiên": f"T+{step_idx+1}",
-                            "Ngày GD": step_date,
-                        }
+                        cells = [
+                            f'<td style="padding: 10px 14px; font-weight: 700; text-align: left;">T+{step_idx+1}</td>',
+                            f'<td style="padding: 10px 14px; text-align: left;">{step_date}</td>',
+                        ]
                         step_prices = []
-                        for m_name in selected_models:
-                            if m_name in all_models_dict:
-                                p_val = all_models_dict[m_name]["prices"][step_idx]
-                                row[m_name] = f"{p_val:,.2f} k"
-                                step_prices.append(p_val)
+                        for m_name in valid_models:
+                            p_val = all_models_dict[m_name]["prices"][step_idx]
+                            step_prices.append(p_val)
+                            cells.append(f'<td style="padding: 10px 14px; text-align: right;">{_fmt_price_cell(p_val, base_p)}</td>')
 
                         if step_prices:
                             step_avg = float(np.mean(step_prices))
-                            row["Trung Bình Đã Chọn"] = f"{step_avg:,.2f} k"
-                            row["Giá VNĐ Bình Quân"] = f"{step_avg*1000:,.0f} đ"
-                            row["% So Giá Hiện Tại"] = f"{((step_avg - quote['price']) / quote['price'] * 100):+.2f}%"
+                            cells.append(f'<td style="padding: 10px 14px; text-align: right; background: rgba(128,128,128,0.06);">{_fmt_price_cell(step_avg, base_p)}</td>')
+                            cells.append(f'<td style="padding: 10px 14px; text-align: right; background: rgba(128,128,128,0.06);">{_fmt_vnd_cell(step_avg, base_p)}</td>')
+                            cells.append(f'<td style="padding: 10px 14px; text-align: right; background: rgba(128,128,128,0.06);">{_fmt_pct_cell(step_avg, base_p)}</td>')
 
-                        dyn_table.append(row)
+                        row_bg = "background: rgba(128,128,128,0.03);" if step_idx % 2 == 1 else ""
+                        html_rows.append(f'<tr style="border-bottom: 1px solid rgba(128,128,128,0.18); {row_bg}">{"".join(cells)}</tr>')
 
-                    st.dataframe(pd.DataFrame(dyn_table), use_container_width=True, hide_index=True)
+                    header_html = "".join([f'<th style="padding: 12px 14px; text-align: {"left" if i < 2 else "right"}; font-weight: 700;">{h}</th>' for i, h in enumerate(tbl_headers)])
+
+                    comparison_html = f"""
+                    <div style="overflow-x: auto; border: 1px solid rgba(128,128,128,0.25); border-radius: 8px; margin: 10px 0 20px 0;">
+                      <table style="width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5;">
+                        <thead>
+                          <tr style="background: rgba(128,128,128,0.12); border-bottom: 2px solid rgba(128,128,128,0.3);">
+                            {header_html}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {"".join(html_rows)}
+                        </tbody>
+                      </table>
+                    </div>
+                    """
+                    st.markdown(comparison_html, unsafe_allow_html=True)
 
                     # 5. BẢN MÔ TẢ PHÂN TÍCH XU HƯỚNG TỔNG HỢP CHI TIẾT
                     st.markdown("#### 📝 Nhận Định Xu Hướng Tổng Hợp Từ Các Mô Hình Đã Chọn:")
