@@ -424,7 +424,27 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     valid_models = [m for m in selected_models if m in all_models_dict]
                     tbl_headers = ["Phiên", "Ngày GD"] + valid_models + ["Trung Bình Đã Chọn", "Giá VNĐ Bình Quân", "% So Giá T0"]
 
+                    # Ngày tham chiếu T+0 từ nến gần nhất
+                    last_idx = df.index[-1]
+                    t0_date = last_idx.strftime("%d/%m/%Y") if hasattr(last_idx, "strftime") else str(last_idx)[:10]
+
                     html_rows = []
+
+                    # 1. DÒNG THAM CHIẾU T+0 (MỐC XUẤT PHÁT HIỆN TẠI)
+                    t0_cells = [
+                        '<td style="padding: 11px 14px; font-weight: 800; text-align: left; color: #0284c7;">⭐ T+0 (Hiện tại)</td>',
+                        f'<td style="padding: 11px 14px; text-align: left; font-weight: 600;">{t0_date}</td>',
+                    ]
+                    for _ in valid_models:
+                        t0_cells.append(f'<td style="padding: 11px 14px; text-align: right;">{_fmt_price_cell(base_p, base_p)}</td>')
+
+                    t0_cells.append(f'<td style="padding: 11px 14px; text-align: right; background: rgba(14, 165, 233, 0.08);">{_fmt_price_cell(base_p, base_p)}</td>')
+                    t0_cells.append(f'<td style="padding: 11px 14px; text-align: right; background: rgba(14, 165, 233, 0.08);">{_fmt_vnd_cell(base_p, base_p)}</td>')
+                    t0_cells.append(f'<td style="padding: 11px 14px; text-align: right; background: rgba(14, 165, 233, 0.08);">{_fmt_pct_cell(base_p, base_p)}</td>')
+
+                    html_rows.append(f'<tr style="border-bottom: 2px solid rgba(14, 165, 233, 0.45); background: rgba(14, 165, 233, 0.08); font-weight: 700;">{"".join(t0_cells)}</tr>')
+
+                    # 2. CÁC DÒNG DỰ BÁO TƯƠNG LAI T+1 ĐẾN T+N
                     for step_idx in range(len(future_dates)):
                         step_date = future_dates[step_idx]
                         cells = [
