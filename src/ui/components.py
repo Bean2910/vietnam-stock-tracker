@@ -196,7 +196,10 @@ def create_multi_model_comparison_chart(
     ticker: str,
 ) -> go.Figure:
     """
-    Biểu đồ đối chiếu đa chiều nhiều mô hình dự báo trên cùng 1 đồ thị tương tác Plotly
+    Biểu đồ đối chiếu đa chiều nhiều mô hình dự báo trên cùng 1 đồ thị tương tác Plotly:
+    - Tự động co giãn (Auto-scale) theo biên độ giá của từng mã cổ phiếu (penny, midcap, bluechip).
+    - Khung biểu đồ cao 600px vừa vặn màn hình chuẩn desktop / laptop.
+    - Cột mốc phân tách trực quan giữa dữ liệu lịch sử thực tế và vùng dự báo tương lai.
     """
     fig = go.Figure()
     all_models = ml_result.get("models", {})
@@ -204,32 +207,33 @@ def create_multi_model_comparison_chart(
     if not all_models:
         return fig
 
-    # 25 phiên nến lịch sử thực tế gần nhất
-    hist = df.tail(25).copy()
+    # Lấy 15 phiên lịch sử gần nhất (3 tuần giao dịch) để tỷ lệ đồ thị cân đối, đường dự báo không bị ép nhỏ
+    hist_len = min(15, len(df))
+    hist = df.tail(hist_len).copy()
     hist_x = [d.strftime("%d/%m") if hasattr(d, "strftime") else str(d) for d in hist.index]
     last_x = hist_x[-1]
     last_y = float(hist["close"].iloc[-1])
 
-    # Đường giá thực tế
+    # 1. Đường giá thực tế lịch sử (HOSE/HNX)
     fig.add_trace(
         go.Scatter(
             x=hist_x,
             y=hist["close"],
             mode="lines+markers",
-            name="Giá Thực Tế (HOSE)",
-            line=dict(color="#f8fafc", width=2.5),
-            marker=dict(size=4),
+            name="Giá Thực Tế (Thị Trường)",
+            line=dict(color="#cbd5e1", width=2.5),
+            marker=dict(size=5, color="#f8fafc"),
         )
     )
 
     pred_x = [last_x] + [d[:5] + f" (T+{i+1})" for i, d in enumerate(future_dates)]
 
-    # Vẽ từng mô hình mà người dùng chọn
+    # 2. Vẽ từng mô hình mà người dùng chọn
     for m_name in selected_models:
         if m_name in all_models:
             m_info = all_models[m_name]
             pred_y = [last_y] + list(m_info["prices"])
-            line_width = 3.5 if "Đồng Thuận" in m_name else 2.0
+            line_width = 3.5 if "Đồng Thuận" in m_name else 2.2
 
             fig.add_trace(
                 go.Scatter(
@@ -246,16 +250,102 @@ def create_multi_model_comparison_chart(
                 )
             )
 
-    fig.update_layout(
-        title=f"🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá ({ticker})",
-        height=480,
-        margin=dict(l=10, r=10, t=50, b=10),
+    # 3. Tính toán Auto-scale trục Y (Tự động thích ứng mọi mức giá từ penny đến bluechip)
+    all_displayed_prices = list(hist["close"].dropna())
+    for m_name in selected_models:
+        if m_name in all_models:
+            all_displayed_prices.extend(all_models[m_name]["prices"])
+
+    if all_displayed_prices:
+        p_min = float(min(all_displayed_prices))
+        p_max = float(max(all_displayed_prices))
+        price_span = p_max - p_min
+        # Đệm tối thiểu 2.5% mức giá để đồ thị không bao giờ bị bẹt/phẳng
+        pad = max(price_span * 0.15, p_max * 0.025)
+        y_range = [round(p_min - pad, 2), round(p_max + pad, 2)]
+    else:
+        y_range = None
+
+    # 4. Đánh dấu cột mốc phân tách Lịch Sử vs Dự Báo Tương Lai (tương thích trục ngày dạng chuỗi)
+    fig.add_shape(
+        type="line",
+        x0=last_x,
+        x1=last_x,
+        y0=0,
+        y1=1,
+        yref="paper",
+        line=dict(color="#94a3b8", width=1.5, dash="dash"),
+    )
+    fig.add_annotation(
+        x=last_x,
+        y=1.01,
+        yref="paper",
+        text="← Lịch Sử | Dự Báo →",
+        showarrow=False,
+        xanchor="right",
+        yanchor="bottom",
+        font=dict(size=11, color="#94a3b8"),
+    )
+
+    # Tô nền nhẹ vùng dự báo tương lai
+    if len(pred_x) > 1:
+        fig.add_shape(
+            type="rect",
+            x0=last_x,
+            x1=pred_x[-1],
+            y0=0,
+            y1=1,
+            yref="paper",
+            fillcolor="rgba(56, 189, 248, 0.06)",
+            layer="below",
+            line_width=0,
+        )
+
+    # 5. Tinh chỉnh Layout toàn diện (Auto-scale, height=580px, căn chỉnh truyền tải dữ liệu)
+    layout_kwargs = dict(
+        title=dict(
+            text=f"🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá ({ticker})",
+            font=dict(size=16, color="#f8fafc"),
+            x=0.01,
+            y=0.98,
+        ),
+        height=580,
+        margin=dict(l=20, r=20, t=65, b=30),
         hovermode="x unified",
         template="plotly_dark",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis_title="Thời Gian",
-        yaxis_title="Mức Giá (nghìn VNĐ)",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(15, 23, 42, 0.8)",
+            bordercolor="#334155",
+            borderwidth=1,
+            font=dict(size=11),
+        ),
+        xaxis=dict(
+            title="Thời Gian (Phiên Giao Dịch)",
+            gridcolor="#1e293b",
+            showgrid=True,
+            tickangle=-25,
+            tickfont=dict(size=11),
+        ),
+        yaxis=dict(
+            title="Mức Giá (nghìn VNĐ)",
+            gridcolor="#334155",
+            showgrid=True,
+            zeroline=False,
+            tickformat=",.2f",
+            tickfont=dict(size=12),
+        ),
     )
+
+    if y_range is not None:
+        layout_kwargs["yaxis"]["range"] = y_range
+        layout_kwargs["yaxis"]["autorange"] = False
+
+    fig.update_layout(**layout_kwargs)
     return fig
 
 
