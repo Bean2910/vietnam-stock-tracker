@@ -373,8 +373,18 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     kpi_col4.metric(f"Thận Trọng: {worst_model.split()[0]}", f"{all_models_dict[worst_model]['final_price']:,.2f} k", f"{all_models_dict[worst_model]['expected_return']:+.2f}%")
 
                     # 3. BIỂU ĐỒ ĐỐI CHIẾU ĐA CHIỀU (PLOTLY CHART) ĐẶT NGAY TRỌNG TÂM
-                    st.markdown(f"#### 📈 Biểu Đồ Đối Chiếu Đường Giá Dự Phóng Giữa Các Mô Hình ({len(future_dates)} Phiên)")
-                    ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym)
+                    ch_title_col, ch_opt_col = st.columns([3, 2])
+                    ch_title_col.markdown(f"#### 📈 Biểu Đồ Đối Chiếu Đường Giá Dự Phóng ({len(future_dates)} Phiên)")
+                    view_opt = ch_opt_col.radio(
+                        "Chế độ hiển thị biểu đồ:",
+                        ["🔍 Toàn Màn Hình (Phóng to các mô hình)", "📊 Kèm 5 phiên lịch sử tham chiếu"],
+                        index=0,
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        key="forecast_chart_view_mode",
+                    )
+                    v_mode = "forecast_only" if "Toàn Màn Hình" in view_opt else "with_history"
+                    ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym, view_mode=v_mode)
                     st.plotly_chart(ml_fig, use_container_width=True)
 
                     # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN (THEO CÁC MÔ HÌNH ĐÃ CHỌN)
