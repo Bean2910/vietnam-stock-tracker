@@ -14,8 +14,14 @@ from src.data.stock_data import stock_engine
 from src.data.market_data import market_engine
 from src.analysis.indicators import calculate_indicators, generate_technical_signals
 from src.analysis.forecasting import forecast_price_trend
+from src.analysis.ml_forecasting import train_and_forecast_ml
 from src.reporting.report_builder import generate_ticker_report_html, generate_ticker_report_markdown
-from src.ui.components import create_candlestick_chart, create_forecast_chart
+from src.ui.components import (
+    create_candlestick_chart,
+    create_forecast_chart,
+    create_ml_forecast_chart,
+    create_feature_importance_chart,
+)
 
 # -------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN STREAMLIT
@@ -263,6 +269,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
             df_indicators = calculate_indicators(df)
             signals = generate_technical_signals(df_indicators)
             forecast = forecast_price_trend(df_indicators, forecast_days=forecast_days)
+            ml_result = train_and_forecast_ml(df_indicators, forecast_days=min(forecast_days, 5), target_ticker=active_sym)
             quote = stock_engine.get_realtime_quote(active_sym)
 
         # Header thông tin mã
@@ -277,8 +284,12 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
         st.markdown("---")
 
-        # Tab chia nhỏ giữa Biểu đồ kỹ thuật & Mô hình dự báo
-        tab_chart, tab_forecast = st.tabs(["📊 Biểu đồ Nến Kỹ thuật", "🔮 Dự báo Xu hướng Giá (Monte Carlo)"])
+        # Tab chia nhỏ giữa Biểu đồ kỹ thuật, Dự báo AI Machine Learning & Mô phỏng Monte Carlo
+        tab_chart, tab_ml, tab_forecast = st.tabs([
+            "📊 Biểu đồ Nến Kỹ thuật",
+            "🤖 Dự Báo Máy Học (AI / Gradient Boosting)",
+            "🎲 Mô Phỏng Xác Suất Monte Carlo",
+        ])
 
         with tab_chart:
             # Tùy chọn hiển thị chỉ báo
@@ -301,8 +312,46 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
             for r in signals.get("reasons", []):
                 st.write(f"- {r}")
 
+        with tab_ml:
+            st.subheader("🤖 Dự Báo Xu Hướng Giá Bằng Máy Học (Gradient Boosting / LightGBM)")
+            st.caption("Mô hình học máy huấn luyện trực tiếp trên chuỗi nến lịch sử thật và các đặc trưng động lượng (RSI, MA, MACD, Volume)")
+
+            if "error" in ml_result and ml_result.get("error"):
+                st.warning(ml_result["error"])
+            else:
+                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+                m_col1.metric("Tín Hiệu AI", ml_result.get("ml_signal", "TRUNG LẬP"))
+                m_col2.metric("Giá Kỳ Vọng T+5", f"{ml_result.get('final_predicted_price', 0):,.2f} k", f"{ml_result.get('final_expected_return', 0):+.2f}%")
+                m_col3.metric("Độ Chính Xác Hướng Đi", f"{ml_result.get('directional_accuracy', 0)}%")
+                m_col4.metric("Sai Số Huấn Luyện (MAE)", f"{ml_result.get('mae', 0):,.2f} k ({ml_result.get('error_pct', 0)}%)")
+
+                st.info(f"💡 **Nhận định từ Mô hình Máy học:** {ml_result.get('comment')}")
+
+                # Biểu đồ dự báo nến thực tế + đường AI
+                ml_fig = create_ml_forecast_chart(df_indicators, ml_result, active_sym)
+                st.plotly_chart(ml_fig, use_container_width=True)
+
+                # Bảng chi tiết từng phiên T+
+                sub_col1, sub_col2 = st.columns([1, 1])
+                with sub_col1:
+                    st.markdown("#### Bảng Giá Dự Báo 5 Phiên Tới (T+1 đến T+5)")
+                    pred_table = []
+                    for p in ml_result.get("predictions", []):
+                        pred_table.append({
+                            "Phiên": p["step"],
+                            "Ngày": p["date"],
+                            "Giá Dự Báo (k)": f"{p['predicted_price']:,.2f}",
+                            "Giá VNĐ": f"{p['predicted_price']*1000:,.0f} đ",
+                            "Biến Động Dự Kiến": f"{p['expected_return_pct']:+.2f}%",
+                        })
+                    st.dataframe(pd.DataFrame(pred_table), use_container_width=True, hide_index=True)
+
+                with sub_col2:
+                    fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
+                    st.plotly_chart(fi_fig, use_container_width=True)
+
         with tab_forecast:
-            st.subheader(f"🔮 Mô Phỏng Kịch Bản Giá ({forecast_days} Phiên Tới)")
+            st.subheader(f"🎲 Mô Phỏng Kịch Bản Xác Suất Monte Carlo ({forecast_days} Phiên Tới)")
             
             f_col1, f_col2, f_col3 = st.columns(3)
             f_col1.metric("Xu Hướng Chủ Đạo", forecast.get("outlook", "N/A"))

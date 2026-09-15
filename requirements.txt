@@ -12,6 +12,10 @@ numpy>=1.26.0
 # Biểu đồ kỹ thuật tương tác
 plotly>=5.20.0
 
+# Mô hình Học Máy (Machine Learning & Gradient Boosting)
+scikit-learn>=1.4.0
+lightgbm>=4.0.0
+
 # Cấu hình môi trường & HTTP requests
 python-dotenv>=1.0.1
 requests>=2.31.0

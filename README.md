@@ -20,15 +20,17 @@ Hệ thống theo dõi bảng giá tức thì, quản lý danh sách cổ phiế
    - Bộ chỉ báo: SMA 20/50/200, EMA, MACD, RSI(14), Bollinger Bands, Khối lượng TB 20 phiên.
    - Tự động chấm điểm kỹ thuật và đưa ra khuyến nghị: `TÍCH CỰC / NÊN MUA`, `TRUNG LẬP`, `TIÊU CỰC / NÊN BÁN`.
 
-4. **Dự Báo Xu Hướng Giá & Mô Phỏng Kịch Bản (Monte Carlo Forecasting)**:
-   - Dự báo xu hướng giá ngắn hạn (3 - 15 phiên).
-   - Mô phỏng Monte Carlo 500 kịch bản xác suất:
-     - Kịch bản Lạc quan (Bull Case +80%)
-     - Kịch bản Cơ sở (Base Case)
-     - Kịch bản Thận trọng (Bear Case -20%)
-   - Đo lường xác suất tăng giá kèm biểu đồ phễu xác suất trực quan.
+4. **Dự Báo Máy Học AI (Gradient Boosting / LightGBM)**:
+   - Mô hình học máy huấn luyện trực tiếp trên chuỗi nến lịch sử thực tế của cổ phiếu.
+   - Trích xuất các đặc trưng tài chính định lượng: Lợi suất trễ (Return lags), độ lệch đường MA, xung lực RSI/MACD, đột biến khối lượng.
+   - Dự báo giá cụ thể 5 phiên kế tiếp (T+1 đến T+5) và phân tích tỷ lệ đóng góp của các yếu tố chi phối (Feature Importance).
+   - Tốc độ tính toán siêu nhanh (< 0.5s), không làm nặng máy hay chậm giao diện.
 
-5. **Xuất Báo Cáo Phân Tích (Reporting Engine)**:
+5. **Mô Phỏng Kịch Bản Xác Suất Monte Carlo**:
+   - Dự báo kịch bản giá 7 - 15 phiên dựa trên độ biến động lịch sử (Volatility).
+   - 500 kịch bản ngẫu nhiên đo lường dải tin cậy: Lạc quan (+80%), Cơ sở (Base), Thận trọng (-20%).
+
+6. **Xuất Báo Cáo Phân Tích (Reporting Engine)**:
    - Xuất file báo cáo phân tích định dạng **HTML** giao diện sang trọng hoặc **Markdown** để lưu trữ/in ấn/chia sẻ.
 
 ---

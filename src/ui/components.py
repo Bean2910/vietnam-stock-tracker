@@ -187,3 +187,97 @@ def create_forecast_chart(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
+
+
+def create_ml_forecast_chart(
+    df: pd.DataFrame,
+    ml_result: Dict[str, Any],
+    ticker: str,
+) -> go.Figure:
+    """
+    Biểu đồ dự báo giá Machine Learning (Gradient Boosting / LightGBM)
+    """
+    fig = go.Figure()
+    predictions = ml_result.get("predictions", [])
+    if not predictions:
+        return fig
+
+    # 20 phiên lịch sử gần nhất
+    hist = df.tail(20).copy()
+    hist_x = [d.strftime("%d/%m") if hasattr(d, "strftime") else str(d) for d in hist.index]
+    fig.add_trace(
+        go.Scatter(
+            x=hist_x,
+            y=hist["close"],
+            mode="lines+markers",
+            name="Giá Thực Tế",
+            line=dict(color="#38bdf8", width=2.5),
+            marker=dict(size=5),
+        )
+    )
+
+    last_x = hist_x[-1]
+    last_y = float(hist["close"].iloc[-1])
+
+    # Nối với dự báo tương lai
+    pred_x = [last_x] + [p["date"][:5] + f" ({p['step']})" for p in predictions]
+    pred_y = [last_y] + [p["predicted_price"] for p in predictions]
+
+    fig.add_trace(
+        go.Scatter(
+            x=pred_x,
+            y=pred_y,
+            mode="lines+markers+text",
+            name="Dự Báo AI (Machine Learning)",
+            text=[""] + [f"{p['predicted_price']:,.2f}" for p in predictions],
+            textposition="top center",
+            line=dict(color="#a855f7", width=3, dash="dashdot"),
+            marker=dict(size=8, color="#c084fc"),
+        )
+    )
+
+    fig.update_layout(
+        title=f"🤖 Dự Báo Máy Học (Gradient Boosting) Cho {ticker} - 5 Phiên Tới",
+        height=450,
+        margin=dict(l=10, r=10, t=50, b=10),
+        hovermode="x unified",
+        template="plotly_dark",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    return fig
+
+
+def create_feature_importance_chart(feature_importance: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Biểu đồ thanh thể hiện độ quan trọng của các yếu tố chi phối giá
+    """
+    fig = go.Figure()
+    if not feature_importance:
+        return fig
+
+    feats = [item["feature"] for item in reversed(feature_importance)]
+    weights = [item["importance"] for item in reversed(feature_importance)]
+
+    fig.add_trace(
+        go.Bar(
+            y=feats,
+            x=weights,
+            orientation="h",
+            marker=dict(
+                color=weights,
+                colorscale="Viridis",
+            ),
+            text=[f"{w}%" for w in weights],
+            textposition="inside",
+        )
+    )
+
+    fig.update_layout(
+        title="Trọng Số Các Yếu Tố Chi Phối Quyết Định Dự Báo (Feature Importance)",
+        height=320,
+        margin=dict(l=10, r=10, t=40, b=10),
+        xaxis_title="Tỷ lệ đóng góp (%)",
+        template="plotly_dark",
+    )
+    return fig
+

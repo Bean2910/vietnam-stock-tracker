@@ -143,14 +143,16 @@ class StockDataEngine:
         ticker = ticker.strip().upper()
         cache_file = self._get_cache_path(ticker, resolution)
 
-        # 1. Kiểm tra Cache Parquet
-        if not force_refresh and self._is_cache_valid(cache_file):
-            try:
-                df = pd.read_parquet(cache_file)
-                if len(df) > 0:
-                    return df
-            except Exception:
-                pass
+        # 1. Kiểm tra Cache Parquet: chỉ dùng nếu cache còn mới VÀ có đủ dữ liệu
+        if not force_refresh and cache_file.exists():
+            file_age_hours = (time.time() - cache_file.stat().st_mtime) / 3600
+            if file_age_hours < CACHE_EXPIRY_HOURS:
+                try:
+                    df = pd.read_parquet(cache_file)
+                    if len(df) >= min(days, 50):
+                        return df
+                except Exception:
+                    pass
 
         # 2. Tải dữ liệu thật từ API Entrade / DNSE
         df = self._fetch_ohlcv_from_entrade(ticker, days=days, resolution=resolution)
@@ -168,8 +170,10 @@ class StockDataEngine:
         return df
 
     def _fetch_ohlcv_from_entrade(self, ticker: str, days: int, resolution: str) -> Optional[pd.DataFrame]:
-        to_ts = int(time.time())
-        from_ts = int(time.time() - (days * 86400 * 1.5))
+        to_ts = int(time.time()) + 86400 * 2
+        # Lấy dôi ra 2.5 lần để bao gồm các ngày nghỉ lễ, thứ 7, chủ nhật
+        fetch_days = max(days * 2.5, 120)
+        from_ts = int(to_ts - (fetch_days * 86400))
         url = f"https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol={ticker}&from={from_ts}&to={to_ts}&resolution={resolution}"
 
         try:
