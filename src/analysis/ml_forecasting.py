@@ -141,7 +141,7 @@ def train_multi_model_forecast(
             "prices": preds_gb,
             "final_price": preds_gb[-1],
             "expected_return": round(((preds_gb[-1] - last_price) / last_price) * 100, 2),
-            "color": "#c084fc",
+            "color": "#7c3aed",
             "dash": "solid",
         },
         "Random Forest": {
@@ -150,7 +150,7 @@ def train_multi_model_forecast(
             "prices": preds_rf,
             "final_price": preds_rf[-1],
             "expected_return": round(((preds_rf[-1] - last_price) / last_price) * 100, 2),
-            "color": "#10b981",
+            "color": "#059669",
             "dash": "dash",
         },
         "Quán Tính Kỹ Thuật": {
@@ -159,7 +159,7 @@ def train_multi_model_forecast(
             "prices": preds_tech,
             "final_price": preds_tech[-1],
             "expected_return": round(((preds_tech[-1] - last_price) / last_price) * 100, 2),
-            "color": "#f97316",
+            "color": "#ea580c",
             "dash": "dot",
         },
         "Monte Carlo (Cơ Sở)": {
@@ -168,7 +168,7 @@ def train_multi_model_forecast(
             "prices": preds_mc,
             "final_price": preds_mc[-1],
             "expected_return": round(((preds_mc[-1] - last_price) / last_price) * 100, 2),
-            "color": "#fbbf24",
+            "color": "#d97706",
             "dash": "dashdot",
         },
         "Đồng Thuận Tổng Hợp (Consensus)": {
@@ -177,7 +177,7 @@ def train_multi_model_forecast(
             "prices": preds_consensus,
             "final_price": preds_consensus[-1],
             "expected_return": round(((preds_consensus[-1] - last_price) / last_price) * 100, 2),
-            "color": "#38bdf8",
+            "color": "#0284c7",
             "dash": "solid",
         },
     }

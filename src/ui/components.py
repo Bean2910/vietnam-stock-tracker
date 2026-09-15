@@ -280,11 +280,11 @@ def create_multi_model_comparison_chart(
     fig.add_hline(
         y=last_y,
         line_dash="dot",
-        line_color="#64748b",
+        line_color="#475569",
         line_width=1.5,
         annotation_text=f"Mức Giá Khớp Tham Chiếu (T0): {last_y:,.2f} k ({last_y*1000:,.0f} đ)",
         annotation_position="bottom right",
-        annotation_font=dict(size=11, color="#94a3b8"),
+        annotation_font=dict(size=11, color="#334155"),
     )
 
     # Tính toán Auto-scale trục Y ôm sát biên độ dự báo
@@ -300,39 +300,48 @@ def create_multi_model_comparison_chart(
     layout_kwargs = dict(
         title=dict(
             text=f"🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá ({ticker}) - {len(future_dates)} Phiên Tới",
-            font=dict(size=16, color="#f8fafc"),
+            font=dict(size=16, color="#0f172a", family="sans-serif"),
             x=0.01,
             y=0.98,
         ),
         height=580,
         margin=dict(l=20, r=20, t=65, b=30),
         hovermode="x unified",
-        template="plotly_dark",
+        template="plotly_white",
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="center",
             x=0.5,
-            bgcolor="rgba(15, 23, 42, 0.85)",
-            bordercolor="#334155",
+            bgcolor="#f8fafc",
+            bordercolor="#cbd5e1",
             borderwidth=1,
-            font=dict(size=11),
+            font=dict(size=12, color="#0f172a", family="sans-serif"),
         ),
         xaxis=dict(
-            title="Các Phiên Giao Dịch Dự Báo",
-            gridcolor="#1e293b",
+            title=dict(
+                text="Các Phiên Giao Dịch Dự Báo",
+                font=dict(size=13, color="#1e293b", family="sans-serif"),
+            ),
+            gridcolor="#e2e8f0",
             showgrid=True,
             tickangle=0,
-            tickfont=dict(size=12, color="#e2e8f0"),
+            tickfont=dict(size=13, color="#0f172a", family="sans-serif"),
+            zeroline=False,
         ),
         yaxis=dict(
-            title="Mức Giá Dự Báo (nghìn VNĐ)",
-            gridcolor="#334155",
+            title=dict(
+                text="Mức Giá Dự Báo (nghìn VNĐ)",
+                font=dict(size=13, color="#1e293b", family="sans-serif"),
+            ),
+            gridcolor="#e2e8f0",
             showgrid=True,
             zeroline=False,
             tickformat=",.2f",
-            tickfont=dict(size=12),
+            tickfont=dict(size=12, color="#0f172a", family="sans-serif"),
         ),
     )
 
