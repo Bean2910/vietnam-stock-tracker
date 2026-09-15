@@ -157,9 +157,9 @@ class StockDataEngine:
         # 2. Tải dữ liệu thật từ API Entrade / DNSE
         df = self._fetch_ohlcv_from_entrade(ticker, days=days, resolution=resolution)
 
-        # 3. Fallback nếu API trục trặc
-        if df is None or len(df) == 0:
-            df = self._generate_fallback_history(ticker, days=days)
+        # 3. Fallback nếu API trục trặc hoặc dữ liệu quá ngắn (< 30 phiên)
+        if df is None or len(df) < 30:
+            df = self._generate_fallback_history(ticker, days=max(days, 90))
 
         # 4. Ghi cache Parquet
         try:
