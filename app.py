@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 # Import các module cốt lõi của dự án
 from config.settings import DEFAULT_TICKERS, AUTO_REFRESH_INTERVAL
@@ -19,7 +20,7 @@ from src.reporting.report_builder import generate_ticker_report_html, generate_t
 from src.ui.components import (
     create_candlestick_chart,
     create_forecast_chart,
-    create_ml_forecast_chart,
+    create_multi_model_comparison_chart,
     create_feature_importance_chart,
 )
 
@@ -269,7 +270,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
             df_indicators = calculate_indicators(df)
             signals = generate_technical_signals(df_indicators)
             forecast = forecast_price_trend(df_indicators, forecast_days=forecast_days)
-            ml_result = train_and_forecast_ml(df_indicators, forecast_days=min(forecast_days, 5), target_ticker=active_sym)
+            ml_result = train_and_forecast_ml(df_indicators, forecast_days=forecast_days, target_ticker=active_sym)
             quote = stock_engine.get_realtime_quote(active_sym)
 
         # Header thông tin mã
