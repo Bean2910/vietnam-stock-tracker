@@ -325,49 +325,50 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                 # 1. BỘ CHỌN MÔ HÌNH TRỰC QUAN BẰNG CHECKBOX
                 st.markdown("#### 🎯 Tùy Chọn Các Mô Hình Muốn Đối Chiếu:")
                 
-                c_btn1, c_btn2, _ = st.columns([1, 1, 4])
-                select_all = c_btn1.button("✅ Chọn Tất Cả", key="sel_all_models")
-                reset_btn = c_btn2.button("🔄 Mặc Định", key="reset_models")
+                for k in ["cb_gb", "cb_rf", "cb_tech", "cb_mc", "cb_cs"]:
+                    if k not in st.session_state:
+                        st.session_state[k] = True
 
-                # Trạng thái mặc định hoặc lưu session
-                if select_all:
-                    st.session_state["cb_gb"] = True
-                    st.session_state["cb_rf"] = True
-                    st.session_state["cb_tech"] = True
-                    st.session_state["cb_mc"] = True
-                    st.session_state["cb_cs"] = True
-                elif reset_btn:
-                    st.session_state["cb_gb"] = True
-                    st.session_state["cb_rf"] = True
-                    st.session_state["cb_tech"] = True
-                    st.session_state["cb_mc"] = True
-                    st.session_state["cb_cs"] = True
+                c_btn1, c_btn2, _ = st.columns([1, 1, 4])
+                if c_btn1.button("✅ Chọn Tất Cả", key="sel_all_models"):
+                    for k in ["cb_gb", "cb_rf", "cb_tech", "cb_mc", "cb_cs"]:
+                        st.session_state[k] = True
+                    st.rerun()
+
+                if c_btn2.button("🔄 Mặc Định", key="reset_models"):
+                    for k in ["cb_gb", "cb_rf", "cb_tech", "cb_mc", "cb_cs"]:
+                        st.session_state[k] = True
+                    st.rerun()
 
                 mc1, mc2, mc3, mc4, mc5 = st.columns(5)
-                sel_gb = mc1.checkbox("🟣 Gradient Boosting (AI)", value=st.session_state.get("cb_gb", True), key="cb_gb")
-                sel_rf = mc2.checkbox("🟢 Random Forest", value=st.session_state.get("cb_rf", True), key="cb_rf")
-                sel_tech = mc3.checkbox("🟠 Quán Tính Kỹ Thuật", value=st.session_state.get("cb_tech", True), key="cb_tech")
-                sel_mc = mc4.checkbox("🟡 Monte Carlo (Cơ Sở)", value=st.session_state.get("cb_mc", True), key="cb_mc")
-                sel_cs = mc5.checkbox("🔵 Đồng Thuận Tổng Hợp", value=st.session_state.get("cb_cs", True), key="cb_cs")
+                sel_gb = mc1.checkbox("🟣 Gradient Boosting (AI)", key="cb_gb")
+                sel_rf = mc2.checkbox("🟢 Random Forest", key="cb_rf")
+                sel_tech = mc3.checkbox("🟠 Quán Tính Kỹ Thuật", key="cb_tech")
+                sel_mc = mc4.checkbox("🟡 Monte Carlo (Cơ Sở)", key="cb_mc")
+                sel_cs = mc5.checkbox("🔵 Đồng Thuận Tổng Hợp", key="cb_cs")
 
                 # Danh sách các mô hình được người dùng tích chọn
                 selected_models = []
-                if sel_gb and "Gradient Boosting (AI)" in all_models_dict:
+                if sel_gb:
                     selected_models.append("Gradient Boosting (AI)")
-                if sel_rf and "Random Forest" in all_models_dict:
+                if sel_rf:
                     selected_models.append("Random Forest")
-                if sel_tech and "Quán Tính Kỹ Thuật" in all_models_dict:
+                if sel_tech:
                     selected_models.append("Quán Tính Kỹ Thuật")
-                if sel_mc and "Monte Carlo (Cơ Sở)" in all_models_dict:
+                if sel_mc:
                     selected_models.append("Monte Carlo (Cơ Sở)")
-                if sel_cs and "Đồng Thuận Tổng Hợp (Consensus)" in all_models_dict:
+                if sel_cs:
                     selected_models.append("Đồng Thuận Tổng Hợp (Consensus)")
 
-                # Nếu chưa chọn gì, hiển thị cảnh báo hướng dẫn và không tính max/min
+                # Lọc các mô hình có sẵn trong từ điển kết quả
+                selected_models = [m for m in selected_models if m in all_models_dict]
+
+                # Nếu người dùng bỏ tick hết hoặc chưa chọn, tự động nạp tất cả các mô hình có sẵn
+                if not selected_models and all_models_dict:
+                    selected_models = list(all_models_dict.keys())
+
                 if not all_models_dict:
-                    st.warning("⚠️ Chưa có dữ liệu mô hình dự báo cho mã cổ phiếu này.")
-                elif not selected_models:
-                    st.warning("⚠️ Bạn đang bỏ chọn tất cả các mô hình. Vui lòng tick chọn ít nhất 1 mô hình ở trên để xem phân tích xu hướng!")
+                    st.warning("⚠️ Đang nạp thêm dữ liệu lịch sử để kích hoạt các mô hình Machine Learning cho mã này.")
                 else:
                     st.markdown("---")
 
