@@ -20,11 +20,19 @@ Hệ thống theo dõi bảng giá tức thì, quản lý danh sách cổ phiế
    - Bộ chỉ báo: SMA 20/50/200, EMA, MACD, RSI(14), Bollinger Bands, Khối lượng TB 20 phiên.
    - Tự động chấm điểm kỹ thuật và đưa ra khuyến nghị: `TÍCH CỰC / NÊN MUA`, `TRUNG LẬP`, `TIÊU CỰC / NÊN BÁN`.
 
-4. **Dự Báo Máy Học AI (Gradient Boosting / LightGBM)**:
-   - Mô hình học máy huấn luyện trực tiếp trên chuỗi nến lịch sử thực tế của cổ phiếu.
-   - Trích xuất các đặc trưng tài chính định lượng: Lợi suất trễ (Return lags), độ lệch đường MA, xung lực RSI/MACD, đột biến khối lượng.
-   - Dự báo giá cụ thể 5 phiên kế tiếp (T+1 đến T+5) và phân tích tỷ lệ đóng góp của các yếu tố chi phối (Feature Importance).
-   - Tốc độ tính toán siêu nhanh (< 0.5s), không làm nặng máy hay chậm giao diện.
+4. **Đối Chiếu Đa Chiều Các Mô Hình Dự Báo AI & Định Lượng (Multi-Model Ensemble)**:
+   - Huấn luyện song song 5 thuật toán Machine Learning & Định lượng trên dữ liệu thực tế:
+     + **Gradient Boosting (AI)**: Bắt nhịp các mẫu hình phi tuyến tính ngắn hạn.
+     + **Random Forest**: Hạn chế nhiễu và giảm thiểu độ lệch cực đoan.
+     + **Quán Tính Kỹ Thuật (Momentum)**: Dựa trên phân kỳ MACD, độ dốc MA20 và lực mua RSI.
+     + **Monte Carlo (Cơ Sở)**: Mô phỏng xác suất lợi suất logarit chu kỳ lịch sử.
+     + **Đồng Thuận Tổng Hợp (AI Consensus)**: Kết hợp trung bình có trọng số của cả 4 mô hình.
+   - Bộ chọn lọc tương tác linh hoạt (chọn hiển thị mô hình bất kỳ trên biểu đồ).
+   - Biểu đồ Plotly đối chiếu toàn màn hình, tự động zoom ôm sát biên độ giá (Auto-scale).
+   - **Bảng so sánh chi tiết từng phiên ($T+0 \rightarrow T+N$)**:
+     + Mốc tham chiếu $T+0$ hiển thị màu vàng đất nhạt chuẩn thị trường.
+     + Tăng giá so với $T+0$: mũi tên lên **`▲`**, chữ màu **xanh lá**.
+     + Giảm giá so với $T+0$: mũi tên xuống **`▼`**, chữ màu **đỏ**.
 
 5. **Mô Phỏng Kịch Bản Xác Suất Monte Carlo**:
    - Dự báo kịch bản giá 7 - 15 phiên dựa trên độ biến động lịch sử (Volatility).
@@ -35,25 +43,55 @@ Hệ thống theo dõi bảng giá tức thì, quản lý danh sách cổ phiế
 
 ---
 
-## 🚀 Hướng Dẫn Khởi Chạy Nhanh
+## 🚀 Hướng Dẫn Cài Đặt & Chạy Lại Trên Máy Mới (Máy Ở Nhà)
 
-### 1. Kích hoạt môi trường ảo
+Khi chuyển sang máy tính cá nhân ở nhà, bạn chỉ cần thực hiện theo các bước cực kỳ đơn giản sau:
+
+### Bước 1: Tải mã nguồn từ GitHub
+Mở terminal (PowerShell hoặc Command Prompt), điều hướng đến thư mục muốn lưu trữ và chạy:
+```bash
+git clone https://github.com/Bean2910/vietnam-stock-tracker.git
+cd vietnam-stock-tracker
+```
+
+### Bước 2: Tạo môi trường ảo Python (Virtual Environment)
+Khuyến nghị sử dụng Python 3.10 đến 3.13:
 ```powershell
-.\.venv\Scripts\Activate.ps1
+python -m venv .venv
 ```
 
-### 2. Cấu hình file `.env`
-Mở file `.env` để điều chỉnh tần suất tự động làm mới hoặc danh mục mã mặc định nếu muốn:
-```env
-AUTO_REFRESH_INTERVAL=10
-DEFAULT_TICKERS=VNM,HPG,FPT,SSI,MWG,TCB,VHM,VIC
+### Bước 3: Kích hoạt môi trường ảo
+- **Trên Windows (PowerShell)**:
+  ```powershell
+  .\.venv\Scripts\Activate.ps1
+  ```
+  *(Nếu gặp lỗi Execution Policy trên PowerShell, chạy lệnh: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` rồi chạy lại lệnh Activate).*
+- **Trên Windows (Command Prompt - CMD)**:
+  ```cmd
+  .\.venv\Scripts\activate.bat
+  ```
+- **Trên macOS / Linux**:
+  ```bash
+  source .venv/bin/activate
+  ```
+
+### Bước 4: Cài đặt các thư viện cần thiết
+```bash
+pip install -r requirements.txt
 ```
 
-### 3. Khởi chạy Ứng dụng Dashboard
+### Bước 5: Thiết lập file cấu hình môi trường `.env`
+Sao chép từ file mẫu `.env.example`:
 ```powershell
-.\.venv\Scripts\streamlit.exe run app.py
+copy .env.example .env
 ```
-Ứng dụng sẽ tự động mở tại trình duyệt: `http://localhost:8501`.
+*(Trên Mac/Linux dùng `cp .env.example .env`).*
+
+### Bước 6: Khởi chạy Ứng dụng
+```powershell
+streamlit run app.py
+```
+Trình duyệt web sẽ tự động mở trang Dashboard tại: **`http://localhost:8501`**.
 
 ---
 
