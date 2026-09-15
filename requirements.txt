@@ -1,0 +1,17 @@
+# Thư viện giao diện & Dashboard
+streamlit>=1.35.0
+
+# Cơ sở dữ liệu NoSQL
+tinydb>=4.8.0
+
+# Xử lý dữ liệu & Parquet Caching
+pandas>=2.2.0
+pyarrow>=15.0.0
+numpy>=1.26.0
+
+# Biểu đồ kỹ thuật tương tác
+plotly>=5.20.0
+
+# Cấu hình môi trường & HTTP requests
+python-dotenv>=1.0.1
+requests>=2.31.0

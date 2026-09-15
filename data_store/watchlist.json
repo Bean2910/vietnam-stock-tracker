@@ -1,0 +1,76 @@
+{
+  "watchlist": {
+    "1": {
+      "ticker": "VNM",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (VNM)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "2": {
+      "ticker": "HPG",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (HPG)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "3": {
+      "ticker": "FPT",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (FPT)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "4": {
+      "ticker": "SSI",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (SSI)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "5": {
+      "ticker": "MWG",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (MWG)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "6": {
+      "ticker": "TCB",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (TCB)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "7": {
+      "ticker": "VHM",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (VHM)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    },
+    "8": {
+      "ticker": "VIC",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "M\u00e3 m\u1eb7c \u0111\u1ecbnh kh\u1edfi t\u1ea1o (VIC)",
+      "alert_enabled": true,
+      "updated_at": "2026-09-15 10:37:48",
+      "added_at": "2026-09-15 10:37:48"
+    }
+  }
+}

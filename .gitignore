@@ -1,0 +1,28 @@
+# Môi trường ảo Python (Virtual Environment)
+.venv/
+venv/
+ENV/
+env/
+
+# Cấu hình bí mật môi trường (Chỉ đẩy .env.example)
+.env
+
+# Cache của Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bộ nhớ đệm dữ liệu nến Parquet & test
+data_store/cache/
+*.parquet
+tests/test_watchlist.json
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
