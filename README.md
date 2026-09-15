@@ -45,20 +45,31 @@ Hệ thống theo dõi bảng giá tức thì, quản lý danh sách cổ phiế
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Lại Trên Máy Mới (Máy Ở Nhà)
 
-Khi chuyển sang máy tính cá nhân ở nhà, bạn chỉ cần thực hiện theo các bước cực kỳ đơn giản sau:
-
-### Bước 1: Tải mã nguồn từ GitHub
-Mở terminal (PowerShell hoặc Command Prompt), điều hướng đến thư mục muốn lưu trữ và chạy:
+Sau khi kéo mã nguồn về máy tính cá nhân ở nhà qua lệnh:
 ```bash
 git clone https://github.com/Bean2910/vietnam-stock-tracker.git
 cd vietnam-stock-tracker
 ```
+*(Hoặc nếu đã clone trước đó thì chỉ cần chạy `git pull origin main`)*.
 
-### Bước 2: Tạo môi trường ảo Python (Virtual Environment)
-Khuyến nghị sử dụng Python 3.10 đến 3.13:
-```powershell
-python -m venv .venv
-```
+---
+
+### ⚡ Cách 1: Khởi động 1-Click Tự Động (Khuyên dùng cho Windows)
+Chỉ cần chạy file script tự động:
+- **Click đúp chuột** vào file **`setup_and_run.bat`** (hoặc gõ `.\setup_and_run.bat` trong terminal).
+- Hoặc chạy trên PowerShell:
+  ```powershell
+  .\setup_and_run.ps1
+  ```
+👉 File script sẽ **tự động hoàn toàn 100%**:
+1. Kiểm tra & tạo môi trường ảo `.venv` nếu chưa có.
+2. Tự động sao chép file cấu hình `.env`.
+3. Tự động cài đặt đầy đủ tất cả thư viện trong `requirements.txt`.
+4. Tự động bật ứng dụng Streamlit Dashboard trên trình duyệt web tại `http://localhost:8501`.
+
+---
+
+### 🛠️ Cách 2: Thực hiện thủ công từng bước (Nếu muốn tự cấu hình)
 
 ### Bước 3: Kích hoạt môi trường ảo
 - **Trên Windows (PowerShell)**:
