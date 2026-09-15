@@ -189,62 +189,78 @@ def create_forecast_chart(
     return fig
 
 
-def create_ml_forecast_chart(
+def create_multi_model_comparison_chart(
     df: pd.DataFrame,
     ml_result: Dict[str, Any],
+    selected_models: List[str],
     ticker: str,
 ) -> go.Figure:
     """
-    Biểu đồ dự báo giá Machine Learning (Gradient Boosting / LightGBM)
+    Biểu đồ đối chiếu đa chiều nhiều mô hình dự báo trên cùng 1 đồ thị tương tác Plotly
     """
     fig = go.Figure()
-    predictions = ml_result.get("predictions", [])
-    if not predictions:
+    all_models = ml_result.get("models", {})
+    future_dates = ml_result.get("future_dates", [])
+    if not all_models:
         return fig
 
-    # 20 phiên lịch sử gần nhất
-    hist = df.tail(20).copy()
+    # 25 phiên nến lịch sử thực tế gần nhất
+    hist = df.tail(25).copy()
     hist_x = [d.strftime("%d/%m") if hasattr(d, "strftime") else str(d) for d in hist.index]
+    last_x = hist_x[-1]
+    last_y = float(hist["close"].iloc[-1])
+
+    # Đường giá thực tế
     fig.add_trace(
         go.Scatter(
             x=hist_x,
             y=hist["close"],
             mode="lines+markers",
-            name="Giá Thực Tế",
-            line=dict(color="#38bdf8", width=2.5),
-            marker=dict(size=5),
+            name="Giá Thực Tế (HOSE)",
+            line=dict(color="#f8fafc", width=2.5),
+            marker=dict(size=4),
         )
     )
 
-    last_x = hist_x[-1]
-    last_y = float(hist["close"].iloc[-1])
+    pred_x = [last_x] + [d[:5] + f" (T+{i+1})" for i, d in enumerate(future_dates)]
 
-    # Nối với dự báo tương lai
-    pred_x = [last_x] + [p["date"][:5] + f" ({p['step']})" for p in predictions]
-    pred_y = [last_y] + [p["predicted_price"] for p in predictions]
+    # Vẽ từng mô hình mà người dùng chọn
+    for m_name in selected_models:
+        if m_name in all_models:
+            m_info = all_models[m_name]
+            pred_y = [last_y] + list(m_info["prices"])
+            line_width = 3.5 if "Đồng Thuận" in m_name else 2.0
 
-    fig.add_trace(
-        go.Scatter(
-            x=pred_x,
-            y=pred_y,
-            mode="lines+markers+text",
-            name="Dự Báo AI (Machine Learning)",
-            text=[""] + [f"{p['predicted_price']:,.2f}" for p in predictions],
-            textposition="top center",
-            line=dict(color="#a855f7", width=3, dash="dashdot"),
-            marker=dict(size=8, color="#c084fc"),
-        )
-    )
+            fig.add_trace(
+                go.Scatter(
+                    x=pred_x,
+                    y=pred_y,
+                    mode="lines+markers",
+                    name=f"{m_name} ({m_info['expected_return']:+.2f}%)",
+                    line=dict(
+                        color=m_info.get("color", "#c084fc"),
+                        width=line_width,
+                        dash=m_info.get("dash", "solid"),
+                    ),
+                    marker=dict(size=6),
+                )
+            )
 
     fig.update_layout(
-        title=f"🤖 Dự Báo Máy Học (Gradient Boosting) Cho {ticker} - 5 Phiên Tới",
-        height=450,
+        title=f"🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá ({ticker})",
+        height=480,
         margin=dict(l=10, r=10, t=50, b=10),
         hovermode="x unified",
         template="plotly_dark",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis_title="Thời Gian",
+        yaxis_title="Mức Giá (nghìn VNĐ)",
     )
     return fig
+
+
+# Giữ tên cũ tương thích
+create_ml_forecast_chart = create_multi_model_comparison_chart
 
 
 def create_feature_importance_chart(feature_importance: List[Dict[str, Any]]) -> go.Figure:

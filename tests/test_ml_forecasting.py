@@ -1,5 +1,5 @@
 """
-Kiểm thử Mô hình Dự báo Máy học Gradient Boosting với Dữ liệu Thật
+Kiểm thử Hệ thống Dự báo Đa Mô hình với Dữ liệu Thật
 """
 import sys
 from pathlib import Path
@@ -11,40 +11,37 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data.stock_data import stock_engine
 from src.analysis.indicators import calculate_indicators
-from src.analysis.ml_forecasting import train_and_forecast_ml
+from src.analysis.ml_forecasting import train_multi_model_forecast
 
 
-def test_ml():
-    print("=" * 65)
-    print("   KIỂM THỬ DỰ BÁO MACHINE LEARNING VỚI DỮ LIỆU THỰC TẾ")
-    print("=" * 65)
+def test_multi_model():
+    print("=" * 70)
+    print("   KIỂM THỬ HỆ THỐNG DỰ BÁO ĐA MÔ HÌNH (MULTI-MODEL ENSEMBLE)")
+    print("=" * 70)
 
     ticker = "HPG"
-    print(f"\n1. Tải dữ liệu nến thật của {ticker}...")
+    print(f"\n1. Tải nến lịch sử thực tế của {ticker}...")
     df = stock_engine.get_historical_ohlcv(ticker, days=120)
     print(f"   [OK] Đã tải {len(df)} phiên nến thật.")
 
-    print("\n2. Tính toán chỉ báo và huấn luyện mô hình...")
+    print("\n2. Huấn luyện và dự báo đa mô hình...")
     df_ind = calculate_indicators(df)
-    ml_res = train_and_forecast_ml(df_ind, forecast_days=5, target_ticker=ticker)
+    res = train_multi_model_forecast(df_ind, forecast_days=5, target_ticker=ticker)
 
-    print(f"\n3. KẾT QUẢ DỰ BÁO TỪ MACHINE LEARNING ({ml_res['algorithm']}):")
-    print(f"   * Giá thị trường hiện tại: {ml_res['current_price']:,.2f} k")
-    print(f"   * Tín hiệu AI đưa ra     : {ml_res['ml_signal']}")
-    print(f"   * Độ chính xác chiều tăng/giảm : {ml_res['directional_accuracy']}%")
-    print(f"   * Sai số kiểm thử (MAE)        : {ml_res['mae']:,.2f} k ({ml_res['error_pct']}%)")
-    print(f"   * Nhận định phân tích   : {ml_res['comment']}")
+    print(f"\n3. ĐỒNG THUẬN TỔNG HỢP: {res['consensus_view']}")
+    print(f"   * {res['consensus_desc']}")
 
-    print("\n4. CHI TIẾT DỰ BÁO 5 PHIÊN TỚI:")
-    for p in ml_res["predictions"]:
-        print(f"   - {p['step']} ({p['date']}): {p['predicted_price']:>6,.2f} k ({p['predicted_price']*1000:>7,.0f} đ) | Dự kiến: {p['expected_return_pct']:>+5.2f}%")
+    print("\n4. SO SÁNH GIÁ DỰ BÁO CỦA CÁC MÔ HÌNH CHO 5 PHIÊN TỚI:")
+    for m_name, m_info in res["models"].items():
+        print(f"   * {m_name:<32}: Giá T+5 = {m_info['final_price']:>6,.2f} k | Biến động: {m_info['expected_return']:>+5.2f}%")
 
-    print("\n5. TOP ĐẶC TRƯNG CHI PHỐI GIÁ (FEATURE IMPORTANCE):")
-    for fi in ml_res["feature_importance"]:
-        print(f"   - {fi['feature']:<35}: {fi['importance']}%")
+    print("\n5. BẢNG CHI TIẾT TỪNG PHIÊN:")
+    for row in res["comparison_table"]:
+        print(f"   - {row['Phiên']} ({row['Ngày']}): GB={row['Gradient Boosting']} | RF={row['Random Forest']} | Tech={row['Quán Tính Kỹ Thuật']} | Consensus={row['Đồng Thuận AI']}")
 
-    print("\n[THÀNH CÔNG] Mô hình hoạt động hoàn hảo và siêu nhanh!")
+    assert len(res["models"]) == 5, "Kỳ vọng 5 mô hình dự báo"
+    print("\n[THÀNH CÔNG] Đã kiểm thử thành công hệ thống đối chiếu đa mô hình!")
 
 
 if __name__ == "__main__":
-    test_ml()
+    test_multi_model()

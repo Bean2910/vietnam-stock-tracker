@@ -313,42 +313,60 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                 st.write(f"- {r}")
 
         with tab_ml:
-            st.subheader("🤖 Dự Báo Xu Hướng Giá Bằng Máy Học (Gradient Boosting / LightGBM)")
-            st.caption("Mô hình học máy huấn luyện trực tiếp trên chuỗi nến lịch sử thật và các đặc trưng động lượng (RSI, MA, MACD, Volume)")
+            st.subheader("🌐 Đối Chiếu Đa Chiều Các Mô Hình Dự Báo Xu Hướng Giá")
+            st.caption("Tổng hợp và so sánh độc lập giữa các thuật toán Machine Learning, Mô hình Định lượng và Xác suất Thống kê")
 
             if "error" in ml_result and ml_result.get("error"):
                 st.warning(ml_result["error"])
             else:
-                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-                m_col1.metric("Tín Hiệu AI", ml_result.get("ml_signal", "TRUNG LẬP"))
-                m_col2.metric("Giá Kỳ Vọng T+5", f"{ml_result.get('final_predicted_price', 0):,.2f} k", f"{ml_result.get('final_expected_return', 0):+.2f}%")
-                m_col3.metric("Độ Chính Xác Hướng Đi", f"{ml_result.get('directional_accuracy', 0)}%")
-                m_col4.metric("Sai Số Huấn Luyện (MAE)", f"{ml_result.get('mae', 0):,.2f} k ({ml_result.get('error_pct', 0)}%)")
+                all_models_dict = ml_result.get("models", {})
+                available_models = list(all_models_dict.keys())
 
-                st.info(f"💡 **Nhận định từ Mô hình Máy học:** {ml_result.get('comment')}")
+                # Bộ lọc tùy chọn hiển thị các mô hình
+                st.markdown("#### 🎯 Tùy Chọn Mô Hình Hiển Thị:")
+                selected_models = st.multiselect(
+                    "Tích chọn các mô hình bạn muốn so sánh trên biểu đồ:",
+                    options=available_models,
+                    default=available_models,
+                    placeholder="Chọn ít nhất 1 mô hình...",
+                )
 
-                # Biểu đồ dự báo nến thực tế + đường AI
-                ml_fig = create_ml_forecast_chart(df_indicators, ml_result, active_sym)
-                st.plotly_chart(ml_fig, use_container_width=True)
+                # Thẻ đánh giá đồng thuận xu hướng
+                c_view = ml_result.get("consensus_view", "")
+                if "TĂNG" in c_view:
+                    st.success(f"📈 **{c_view}**: {ml_result.get('consensus_desc')}")
+                elif "GIẢM" in c_view:
+                    st.error(f"📉 **{c_view}**: {ml_result.get('consensus_desc')}")
+                else:
+                    st.info(f"⚖️ **{c_view}**: {ml_result.get('consensus_desc')}")
 
-                # Bảng chi tiết từng phiên T+
-                sub_col1, sub_col2 = st.columns([1, 1])
-                with sub_col1:
-                    st.markdown("#### Bảng Giá Dự Báo 5 Phiên Tới (T+1 đến T+5)")
-                    pred_table = []
-                    for p in ml_result.get("predictions", []):
-                        pred_table.append({
-                            "Phiên": p["step"],
-                            "Ngày": p["date"],
-                            "Giá Dự Báo (k)": f"{p['predicted_price']:,.2f}",
-                            "Giá VNĐ": f"{p['predicted_price']*1000:,.0f} đ",
-                            "Biến Động Dự Kiến": f"{p['expected_return_pct']:+.2f}%",
-                        })
-                    st.dataframe(pd.DataFrame(pred_table), use_container_width=True, hide_index=True)
+                # Metric tóm tắt từng mô hình được chọn
+                if selected_models:
+                    model_cols = st.columns(len(selected_models))
+                    for idx, m_name in enumerate(selected_models):
+                        m_info = all_models_dict[m_name]
+                        c_sign = "+" if m_info["expected_return"] >= 0 else ""
+                        model_cols[idx].metric(
+                            label=f"📌 {m_name}",
+                            value=f"{m_info['final_price']:,.2f} k",
+                            delta=f"{c_sign}{m_info['expected_return']:.2f}%",
+                        )
 
-                with sub_col2:
-                    fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
-                    st.plotly_chart(fi_fig, use_container_width=True)
+                # Biểu đồ đối chiếu đa chiều
+                if selected_models:
+                    ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym)
+                    st.plotly_chart(ml_fig, use_container_width=True)
+                else:
+                    st.warning("Vui lòng chọn ít nhất 1 mô hình ở phía trên để hiển thị biểu đồ!")
+
+                # Bảng so sánh chi tiết giữa các mô hình
+                st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên Giữa Các Mô Hình")
+                st.dataframe(pd.DataFrame(ml_result.get("comparison_table", [])), use_container_width=True, hide_index=True)
+
+                # Biểu đồ trọng số chi phối giá
+                st.markdown("---")
+                fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
+                st.plotly_chart(fi_fig, use_container_width=True)
 
         with tab_forecast:
             st.subheader(f"🎲 Mô Phỏng Kịch Bản Xác Suất Monte Carlo ({forecast_days} Phiên Tới)")
