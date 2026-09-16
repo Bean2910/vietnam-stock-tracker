@@ -3,10 +3,13 @@
 Giao diện Streamlit Dashboard hiện đại, kết nối dữ liệu tức thì, lưu trữ TinyDB NoSQL.
 """
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import streamlit as st
 import pandas as pd
 import numpy as np
+
+# Múi giờ Việt Nam (UTC+7)
+VN_TZ = timezone(timedelta(hours=7))
 
 # Import các module cốt lõi của dự án
 from config.settings import DEFAULT_TICKERS, AUTO_REFRESH_INTERVAL
@@ -188,7 +191,7 @@ if active_alerts:
         st.sidebar.warning(alt)
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"🕒 Lần cập nhật cuối: {datetime.now().strftime('%H:%M:%S')}")
+st.sidebar.caption(f"🕒 Lần cập nhật cuối: {datetime.now(VN_TZ).strftime('%H:%M:%S')}")
 st.sidebar.caption("💾 Lưu trữ NoSQL: `TinyDB (JSON)`")
 
 
