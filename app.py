@@ -66,21 +66,55 @@ st.markdown("""
 # Khởi tạo dữ liệu mẫu nếu watchlist đang trống
 watchlist_db.init_defaults_if_empty(DEFAULT_TICKERS)
 
+
+@st.cache_data(ttl=120)
+def get_stock_technical_summary(ticker: str):
+    """Tính toán nhanh chỉ báo kỹ thuật, tín hiệu và các ngưỡng hỗ trợ/kháng cự (lưu đệm 120s)"""
+    try:
+        df = stock_engine.get_historical_ohlcv(ticker, days=90)
+        if df.empty or len(df) < 15:
+            return None
+        df_ind = calculate_indicators(df)
+        sig = generate_technical_signals(df_ind)
+        latest = df_ind.iloc[-1]
+        rsi = float(latest.get("RSI", 50.0))
+        sma20 = float(latest.get("SMA20", latest["close"]))
+        close_p = float(latest["close"])
+        return {
+            "action": sig["action"],
+            "score": sig["score"],
+            "reasons": sig.get("reasons", []),
+            "support": float(sig.get("support", 0.0)),
+            "resistance": float(sig.get("resistance", 0.0)),
+            "rsi": rsi,
+            "sma20": sma20,
+            "ma20_status": "Trên SMA20 (Tích cực)" if close_p >= sma20 else "Dưới SMA20 (Thận trọng)",
+            "primary_reason": sig.get("reasons", ["Tín hiệu đang cập nhật"])[0] if sig.get("reasons") else "Tín hiệu ổn định",
+        }
+    except Exception:
+        return None
+
+
 # -------------------------------------------------------------
 # 2. SIDEBAR - THANH ĐIỀU HƯỚNG & CÀI ĐẶT
 # -------------------------------------------------------------
 st.sidebar.markdown("## 📈 **VN-Stock Analytics**")
 st.sidebar.caption("Hệ thống theo dõi & dự báo chứng khoán tức thì")
 
+nav_options = [
+    "📊 Tổng quan Thị trường",
+    "⭐ Danh mục Yêu thích (Watchlist)",
+    "🔍 Phân tích Chi tiết & Dự báo",
+    "📑 Xuất Báo cáo Phân tích",
+]
+
+if "nav_radio" not in st.session_state:
+    st.session_state["nav_radio"] = nav_options[0]
+
 navigation = st.sidebar.radio(
     "CHỌN CHỨC NĂNG",
-    [
-        "📊 Tổng quan Thị trường",
-        "⭐ Danh mục Yêu thích (Watchlist)",
-        "🔍 Phân tích Chi tiết & Dự báo",
-        "📑 Xuất Báo cáo Phân tích",
-    ],
-    index=0,
+    nav_options,
+    key="nav_radio",
 )
 
 st.sidebar.markdown("---")
@@ -115,8 +149,8 @@ st.sidebar.caption("💾 Lưu trữ NoSQL: `TinyDB (JSON)`")
 # 3. TRANG 1: TỔNG QUAN THỊ TRƯỜNG (MARKET OVERVIEW)
 # -------------------------------------------------------------
 if navigation == "📊 Tổng quan Thị trường":
-    st.title("📊 Tổng Quan Thị Trường Chứng Khoán Việt Nam")
-    st.caption("Cập nhật chỉ số VN-Index, VN30, độ rộng và thanh khoản toàn thị trường")
+    st.title("📊 Tổng Quan Thị Trường & Radar Tín Hiệu Kỹ Thuật")
+    st.caption("Cập nhật chỉ số VN-Index, độ rộng thị trường, bảng tổng hợp tín hiệu hành động và giá tức thì")
 
     mkt_data = market_engine.get_market_overview()
     indexes = mkt_data["indexes"]
@@ -144,12 +178,131 @@ if navigation == "📊 Tổng quan Thị trường":
     b_col4.metric("💰 Thanh khoản ước tính", f"{breadth['liquidity_bil']:,.0f} Tỷ VND")
 
     st.markdown("---")
-    st.subheader("🔥 Bảng Giá Trực Tuyến Các Cổ Phiếu Tâm Điểm")
-    
-    # Lấy bảng giá các mã trong Watchlist
-    fav_tickers = watchlist_db.get_ticker_list()
-    quotes = stock_engine.get_quotes_batch(fav_tickers)
 
+    # ---------------------------------------------------------
+    # RADAR TÍN HIỆU & PHÂN TÍCH TỔNG QUAN TỪNG MÃ (ĐẦU TRANG)
+    # ---------------------------------------------------------
+    st.subheader("🎯 Radar Tín Hiệu & Phân Tích Kỹ Thuật Toàn Danh Mục")
+    st.caption("Đánh giá tự động trạng thái hành động (Nên Mua / Quan Sát / Nên Bán), điểm sức mạnh và lý do kỹ thuật cốt lõi")
+
+    fav_tickers = watchlist_db.get_ticker_list()
+    if not fav_tickers:
+        fav_tickers = DEFAULT_TICKERS
+
+    quotes = stock_engine.get_quotes_batch(fav_tickers)
+    quotes_dict = {q["ticker"]: q for q in quotes}
+
+    signal_summaries = []
+    buy_count = 0
+    neutral_count = 0
+    sell_count = 0
+
+    for sym in fav_tickers:
+        q = quotes_dict.get(sym, stock_engine.get_realtime_quote(sym))
+        tech = get_stock_technical_summary(sym)
+        if tech:
+            action = tech["action"]
+            if "MUA" in action:
+                buy_count += 1
+                b_icon = "🟢"
+            elif "BÁN" in action:
+                sell_count += 1
+                b_icon = "🔴"
+            else:
+                neutral_count += 1
+                b_icon = "🟡"
+
+            signal_summaries.append({
+                "ticker": sym,
+                "quote": q,
+                "tech": tech,
+                "badge_icon": b_icon,
+            })
+        else:
+            signal_summaries.append({
+                "ticker": sym,
+                "quote": q,
+                "tech": {
+                    "action": "QUAN SÁT / TRUNG LẬP",
+                    "score": 50,
+                    "reasons": ["Đang đồng bộ dữ liệu"],
+                    "support": q["price"] * 0.95,
+                    "resistance": q["price"] * 1.05,
+                    "rsi": 50.0,
+                    "ma20_status": "Ổn định",
+                    "primary_reason": "Theo dõi phản ứng giá",
+                },
+                "badge_icon": "🟡",
+            })
+            neutral_count += 1
+
+    # Thống kê nhanh toàn danh mục
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("🟢 Khuyến Nghị Nên Mua", f"{buy_count} mã", "Tín hiệu kỹ thuật tích cực")
+    s2.metric("🟡 Khuyến Nghị Quan Sát", f"{neutral_count} mã", "Vùng tích lũy / Đi ngang")
+    s3.metric("🔴 Cảnh Báo Nên Bán", f"{sell_count} mã", "Áp lực điều chỉnh")
+    avg_score = int(np.mean([s["tech"]["score"] for s in signal_summaries])) if signal_summaries else 50
+    s4.metric("⭐ Điểm Sức Mạnh TB", f"{avg_score}/100", "Độ đồng thuận kỹ thuật")
+
+    # Bảng phân tích tín hiệu chi tiết
+    st.markdown("##### 📋 Bảng Tổng Hợp Tín Hiệu & Khuyến Nghị Toàn Bộ Danh Mục:")
+    radar_records = []
+    for item in signal_summaries:
+        sym = item["ticker"]
+        q = item["quote"]
+        tech = item["tech"]
+        radar_records.append({
+            "Mã CK": sym,
+            "Giá Khớp (k)": f"{q['price']:,.2f}",
+            "Giá (VNĐ)": f"{q['price']*1000:,.0f} đ",
+            "% Biến Động": f"{'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%",
+            "Tín Hiệu Hành Động": f"{item['badge_icon']} {tech['action']}",
+            "Điểm Sức Mạnh": f"{tech['score']}/100",
+            "RSI(14)": f"{tech['rsi']:.1f}",
+            "Vị Thế MA20": tech["ma20_status"],
+            "Hỗ Trợ (k)": f"{tech['support']:,.2f}",
+            "Kháng Cự (k)": f"{tech['resistance']:,.2f}",
+            "Lý Do Kỹ Thuật Chính": tech["primary_reason"],
+        })
+    st.dataframe(pd.DataFrame(radar_records), width="stretch", hide_index=True)
+
+    # Hiển thị Thẻ Tín Hiệu Nhanh (Cards Grid) kèm nút soi sâu 1-Click
+    with st.expander("⚡ **Xem Chi Tiết Từng Mã Dạng Thẻ (Signal Cards) & Phân Tích Nhanh 1-Click**", expanded=True):
+        card_cols = st.columns(min(len(signal_summaries), 4) if signal_summaries else 1)
+        for i, item in enumerate(signal_summaries):
+            col_idx = i % len(card_cols)
+            sym = item["ticker"]
+            q = item["quote"]
+            tech = item["tech"]
+            p_color = "#10b981" if q["change"] > 0 else ("#ef4444" if q["change"] < 0 else "#f59e0b")
+            
+            with card_cols[col_idx]:
+                st.markdown(f"""
+                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <strong style="font-size: 17px; color: #f8fafc;">{sym}</strong>
+                        <span style="font-size: 12px; font-weight: 700; color: {p_color};">{item['badge_icon']} {tech['action'].split('/')[0].strip()}</span>
+                    </div>
+                    <div style="font-size: 19px; font-weight: 800; color: {p_color};">
+                        {q['price']:,.2f} k <span style="font-size: 12px; color: #94a3b8;">({'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%)</span>
+                    </div>
+                    <div style="font-size: 12px; color: #cbd5e1; margin-top: 6px; line-height: 1.5;">
+                        🎯 <b>Điểm KT:</b> {tech['score']}/100 | <b>RSI:</b> {tech['rsi']:.1f}<br>
+                        🛡️ <b>Hỗ trợ:</b> {tech['support']:,.2f} | <b>Kháng cự:</b> {tech['resistance']:,.2f}
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 5px; font-style: italic;">
+                        💡 {tech['primary_reason']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"🔎 Soi sâu {sym}", key=f"quick_view_{sym}", width="stretch"):
+                    st.session_state["target_sym"] = sym
+                    st.session_state["nav_radio"] = "🔍 Phân tích Chi tiết & Dự báo"
+                    st.rerun()
+
+    st.markdown("---")
+    st.subheader("🔥 Bảng Giá Trực Tuyến & Sổ Lệnh Chi Tiết")
+    
     table_records = []
     for q in quotes:
         table_records.append({
@@ -176,7 +329,7 @@ if navigation == "📊 Tổng quan Thị trường":
 # -------------------------------------------------------------
 elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
     st.title("⭐ Quản Lý Danh Mục Cổ Phiếu Yêu Thích")
-    st.caption("Lưu trữ NoSQL TinyDB chuẩn JSON - Cài đặt ngưỡng cảnh báo chốt lời / cắt lỗ tức thì")
+    st.caption("Lưu trữ NoSQL TinyDB chuẩn JSON - Cài đặt & chỉnh sửa ngưỡng cảnh báo chốt lời / cắt lỗ tức thì")
 
     watchlist_items = watchlist_db.get_all()
 
@@ -185,8 +338,20 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
         with st.form("add_ticker_form"):
             f_col1, f_col2, f_col3 = st.columns(3)
             new_ticker = f_col1.text_input("Mã Cổ Phiếu (VD: HPG, FPT, VNM)*").strip().upper()
-            target_p = f_col2.number_input("Giá Mục Tiêu Chốt Lời (VND)", min_value=0.0, step=1.0, value=0.0)
-            stop_l = f_col3.number_input("Ngưỡng Cắt Lỗ (VND)", min_value=0.0, step=1.0, value=0.0)
+            target_p = f_col2.number_input(
+                "Giá Mục Tiêu Chốt Lời (k VNĐ)", 
+                min_value=0.0, 
+                step=0.5, 
+                value=0.0,
+                help="Đơn vị: nghìn đồng (VD: nhập 32.5 tương đương 32,500 đ)"
+            )
+            stop_l = f_col3.number_input(
+                "Ngưỡng Cắt Lỗ (k VNĐ)", 
+                min_value=0.0, 
+                step=0.5, 
+                value=0.0,
+                help="Đơn vị: nghìn đồng (VD: nhập 26.0 tương đương 26,000 đ)"
+            )
             
             f_note = st.text_input("Ghi chú chiến lược đầu tư (Tùy chọn)", placeholder="Ví dụ: Mua gom vùng hỗ trợ, chờ báo cáo Q3")
             f_alert = st.checkbox("Bật cảnh báo tự động khi chạm ngưỡng", value=True)
@@ -216,29 +381,73 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
         for item in watchlist_items:
             sym = item["ticker"]
             q = stock_engine.get_realtime_quote(sym)
+            tech = get_stock_technical_summary(sym)
             p_class = "price-up" if q["change"] > 0 else ("price-down" if q["change"] < 0 else "price-ref")
 
             with st.container():
-                c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2, 3, 1])
+                c1, c2, c3, c4, c5, c6 = st.columns([1.2, 1.8, 1.8, 2.3, 2.0, 1.6])
                 
                 # Cột 1: Mã & Trạng thái
                 c1.markdown(f"### **{sym}**")
-                c1.caption(f"Thêm lúc: {item.get('added_at', 'N/A')[:10]}")
+                c1.caption(f"Thêm: {item.get('added_at', 'N/A')[:10]}")
                 
                 # Cột 2: Giá Realtime
-                c2.markdown(f"<div class='{p_class}' style='font-size: 22px;'>{q['price']:,.2f} k <span style='font-size: 14px; color: #94a3b8;'>({q['price']*1000:,.0f} đ)</span></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='{p_class}' style='font-size: 20px;'>{q['price']:,.2f} k</div>", unsafe_allow_html=True)
                 c2.caption(f"{'+' if q['change'] >= 0 else ''}{q['change']:,.2f} ({'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%)")
 
-                # Cột 3: Ngưỡng cảnh báo
-                tp_str = f"{item['target_price']:,.1f}" if item.get("target_price") else "Chưa đặt"
-                sl_str = f"{item['stop_loss']:,.1f}" if item.get("stop_loss") else "Chưa đặt"
-                c3.markdown(f"🎯 **Target:** `{tp_str}`\n\n⚠️ **Stop:** `{sl_str}`")
+                # Cột 3: Tín hiệu kỹ thuật nhanh
+                if tech:
+                    t_badge = "🟢" if "MUA" in tech["action"] else ("🔴" if "BÁN" in tech["action"] else "🟡")
+                    c3.markdown(f"**Tín hiệu:** {t_badge} `{tech['action'].split('/')[0].strip()}`")
+                    c3.caption(f"Điểm: {tech['score']}/100 | RSI: {tech['rsi']:.1f}")
+                else:
+                    c3.markdown("`Đang cập nhật`")
 
-                # Cột 4: Ghi chú
-                c4.info(item.get("note") or "Không có ghi chú")
+                # Cột 4: Ngưỡng cảnh báo Target & Stop
+                cur_tp = float(item.get("target_price") or 0.0)
+                cur_sl = float(item.get("stop_loss") or 0.0)
+                tp_str = f"{cur_tp:,.2f} k ({cur_tp*1000:,.0f} đ)" if cur_tp > 0 else "Chưa đặt"
+                sl_str = f"{cur_sl:,.2f} k ({cur_sl*1000:,.0f} đ)" if cur_sl > 0 else "Chưa đặt"
+                c4.markdown(f"🎯 **Target:** `{tp_str}`\n\n⚠️ **Stop:** `{sl_str}`")
 
-                # Cột 5: Nút Xóa
-                if c5.button("🗑️ Xóa", key=f"del_{sym}"):
+                # Cột 5: Ghi chú
+                c5.info(item.get("note") or "Không có ghi chú")
+
+                # Cột 6: Nút Chỉnh Sửa (Popover) & Xóa
+                with c6.popover("✏️ Sửa", width="stretch"):
+                    st.markdown(f"#### ⚙️ Chỉnh sửa mã **{sym}**")
+                    with st.form(key=f"edit_form_{sym}"):
+                        edit_tp = st.number_input(
+                            "🎯 Giá Mục Tiêu Chốt Lời (k VNĐ)",
+                            min_value=0.0,
+                            step=0.5,
+                            value=cur_tp,
+                            help="Đơn vị: nghìn đồng (VD: nhập 32.5 tương đương 32,500 đ. Nhập 0 để hủy ngưỡng)"
+                        )
+                        edit_sl = st.number_input(
+                            "⚠️ Ngưỡng Cắt Lỗ (k VNĐ)",
+                            min_value=0.0,
+                            step=0.5,
+                            value=cur_sl,
+                            help="Đơn vị: nghìn đồng (VD: nhập 26.0 tương đương 26,000 đ. Nhập 0 để hủy ngưỡng)"
+                        )
+                        edit_note = st.text_input("Ghi chú chiến lược", value=item.get("note") or "")
+                        edit_alert = st.checkbox("Bật cảnh báo tự động", value=item.get("alert_enabled", True))
+                        
+                        saved = st.form_submit_button("💾 Lưu Cập Nhật", width="stretch")
+                        if saved:
+                            watchlist_db.add_or_update(
+                                ticker=sym,
+                                target_price=edit_tp if edit_tp > 0 else None,
+                                stop_loss=edit_sl if edit_sl > 0 else None,
+                                note=edit_note,
+                                alert_enabled=edit_alert,
+                            )
+                            st.success(f"Đã cập nhật mã {sym} thành công!")
+                            time.sleep(0.4)
+                            st.rerun()
+
+                if c6.button("🗑️ Xóa", key=f"del_{sym}", width="stretch"):
                     watchlist_db.remove(sym)
                     st.rerun()
 
@@ -256,8 +465,12 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
     if not fav_list:
         fav_list = DEFAULT_TICKERS
 
+    default_sym_idx = 0
+    if "target_sym" in st.session_state and st.session_state["target_sym"] in fav_list:
+        default_sym_idx = fav_list.index(st.session_state["target_sym"])
+
     t_col1, t_col2, t_col3 = st.columns([2, 1, 1])
-    selected_ticker = t_col1.selectbox("Chọn mã từ Watchlist:", fav_list, index=0)
+    selected_ticker = t_col1.selectbox("Chọn mã từ Watchlist:", fav_list, index=default_sym_idx)
     manual_ticker = t_col2.text_input("Hoặc nhập mã bất kỳ:").strip().upper()
     active_sym = manual_ticker if manual_ticker else selected_ticker
 
