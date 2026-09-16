@@ -35,9 +35,9 @@ def generate_ticker_report_markdown(
 ---
 
 ## 1. TÌNH HÌNH THỊ TRƯỜNG HIỆN TẠI
-- **Giá hiện tại**: `{current_price:,.1f} VND` ({color_emoji} {change:+,.1f} / {pct_change:+.2f}%)
+- **Giá hiện tại**: `{current_price:,.2f}` ({current_price*1000:,.0f} VNĐ) ({color_emoji} {change:+,.2f} / {pct_change:+.2f}%)
 - **Khối lượng giao dịch**: `{volume:,.0f}` cổ phiếu
-- **Vùng dao động gần nhất (Hỗ trợ - Kháng cự)**: `{signals.get('support', 0):,.1f}` — `{signals.get('resistance', 0):,.1f}`
+- **Vùng dao động gần nhất (Hỗ trợ - Kháng cự)**: `{signals.get('support', 0):,.2f}` — `{signals.get('resistance', 0):,.2f}`
 
 ---
 
@@ -226,8 +226,8 @@ def generate_ticker_report_html(
         <div class="grid">
             <div class="stat-box" style="border-left-color: {price_color};">
                 <div class="stat-label">Giá Thị Trường Hiện Tại</div>
-                <div class="stat-value" style="color: {price_color};">{current_price:,.1f} VND</div>
-                <div style="font-size: 13px; color: {price_color}; font-weight: 600;">{change:+,.1f} ({pct_change:+.2f}%)</div>
+                <div class="stat-value" style="color: {price_color};">{current_price:,.2f} <span style="font-size: 14px; font-weight: 500; color: #64748b;">({current_price*1000:,.0f} VNĐ)</span></div>
+                <div style="font-size: 13px; color: {price_color}; font-weight: 600;">{change:+,.2f} ({pct_change:+.2f}%)</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">Khối Lượng Khớp Lệnh</div>
@@ -236,7 +236,7 @@ def generate_ticker_report_html(
             </div>
             <div class="stat-box">
                 <div class="stat-label">Kháng Cự / Hỗ Trợ Gần Nhất</div>
-                <div class="stat-value" style="font-size: 18px; line-height: 28px;">{signals.get('support', 0):,.1f} - {signals.get('resistance', 0):,.1f}</div>
+                <div class="stat-value" style="font-size: 18px; line-height: 28px;">{signals.get('support', 0):,.2f} - {signals.get('resistance', 0):,.2f}</div>
                 <div style="font-size: 13px; color: #64748b;">Khung 20 phiên</div>
             </div>
         </div>

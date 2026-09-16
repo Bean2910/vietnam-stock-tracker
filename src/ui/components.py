@@ -241,7 +241,7 @@ def create_multi_model_comparison_chart(
                 y=[last_y],
                 mode="markers+text",
                 name="Giá Khớp Hiện Tại (T0)",
-                text=[f"T0: {last_y:,.2f} k"],
+                text=[f"T0: {last_y:,.2f}"],
                 textposition="top center",
                 marker=dict(size=12, color="#38bdf8", symbol="diamond"),
                 showlegend=True,
@@ -264,7 +264,7 @@ def create_multi_model_comparison_chart(
                     mode="lines+markers",
                     name=f"{m_name} ({m_info['expected_return']:+.2f}%)",
                     customdata=custom_vnd,
-                    hovertemplate="<b>" + m_name + "</b><br>Phiên: %{x}<br>Giá: %{y:,.2f} k (%{customdata:,.0f} đ)<extra></extra>",
+                    hovertemplate="<b>" + m_name + "</b><br>Phiên: %{x}<br>Điểm giá: %{y:,.2f} (%{customdata:,.0f} VNĐ)<extra></extra>",
                     line=dict(
                         color=m_info.get("color", "#c084fc"),
                         width=line_width,
@@ -280,7 +280,7 @@ def create_multi_model_comparison_chart(
         line_dash="dot",
         line_color="#475569",
         line_width=1.5,
-        annotation_text=f"Mức Giá Khớp Tham Chiếu (T0): {last_y:,.2f} k ({last_y*1000:,.0f} đ)",
+        annotation_text=f"Mức Giá Khớp Tham Chiếu (T0): {last_y:,.2f} ({last_y*1000:,.0f} VNĐ)",
         annotation_position="bottom right",
         annotation_font=dict(size=11, color="#334155"),
     )

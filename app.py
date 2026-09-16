@@ -67,6 +67,21 @@ st.markdown("""
 watchlist_db.init_defaults_if_empty(DEFAULT_TICKERS)
 
 
+@st.cache_data(ttl=15)
+def get_cached_quotes_map(tickers_tuple):
+    """Lấy snapshot bảng giá theo batch cho nhiều mã và lưu đệm 15s để chuyển trang mượt mà"""
+    if not tickers_tuple:
+        return {}
+    quotes = stock_engine.get_quotes_batch(list(tickers_tuple))
+    return {q["ticker"]: q for q in quotes}
+
+
+@st.cache_data(ttl=30)
+def get_cached_market_overview():
+    """Lấy chỉ số VN-Index, VN30, HNX và độ rộng thị trường (lưu đệm 30s)"""
+    return market_engine.get_market_overview()
+
+
 @st.cache_data(ttl=120)
 def get_stock_technical_summary(ticker: str):
     """Tính toán nhanh chỉ báo kỹ thuật, tín hiệu và các ngưỡng hỗ trợ/kháng cự (lưu đệm 120s)"""
@@ -93,6 +108,31 @@ def get_stock_technical_summary(ticker: str):
         }
     except Exception:
         return None
+
+
+@st.cache_data(ttl=300)
+def get_cached_ticker_analysis(ticker: str, days: int = 180, forecast_days: int = 7):
+    """Huấn luyện mô hình và tính toán chỉ báo kỹ thuật chuyên sâu (lưu đệm 300s tránh khựng khi đổi tab)"""
+    df = stock_engine.get_historical_ohlcv(ticker, days=days)
+    df_ind = calculate_indicators(df)
+    signals = generate_technical_signals(df_ind)
+    forecast = forecast_price_trend(df_ind, forecast_days=forecast_days)
+    ml_result = train_and_forecast_ml(df_ind, forecast_days=forecast_days, target_ticker=ticker)
+    return df, df_ind, signals, forecast, ml_result
+
+
+@st.cache_data(ttl=300)
+def get_cached_report_content(rep_ticker: str):
+    """Tổng hợp nội dung báo cáo HTML/Markdown (lưu đệm 300s)"""
+    quote = stock_engine.get_realtime_quote(rep_ticker)
+    df = stock_engine.get_historical_ohlcv(rep_ticker, days=180)
+    df_ind = calculate_indicators(df)
+    signals = generate_technical_signals(df_ind)
+    forecast = forecast_price_trend(df_ind, forecast_days=7)
+    wl_info = watchlist_db.get_by_ticker(rep_ticker)
+    md_report = generate_ticker_report_markdown(rep_ticker, quote, signals, forecast, wl_info)
+    html_report = generate_ticker_report_html(rep_ticker, quote, signals, forecast, wl_info)
+    return md_report, html_report
 
 
 # -------------------------------------------------------------
@@ -123,16 +163,20 @@ auto_refresh = st.sidebar.checkbox("Bật tự động làm mới", value=False)
 refresh_rate = st.sidebar.slider("Tần suất (giây)", min_value=1, max_value=60, value=AUTO_REFRESH_INTERVAL, step=1)
 
 if st.sidebar.button("🔄 Làm mới dữ liệu ngay", width="stretch"):
+    st.cache_data.clear()
     st.rerun()
 
-# Kiểm tra & hiển thị cảnh báo giá tức thì từ Watchlist
+# Kiểm tra & hiển thị cảnh báo giá tức thì từ Watchlist (sử dụng batch cache tránh lag khi chuyển tab)
 all_watchlist = watchlist_db.get_all()
 active_alerts = []
-for item in all_watchlist:
-    sym = item["ticker"]
-    quote = stock_engine.get_realtime_quote(sym)
-    alerts = watchlist_db.check_price_alerts(sym, quote["price"])
-    active_alerts.extend(alerts)
+if all_watchlist:
+    wl_syms = tuple(item["ticker"] for item in all_watchlist)
+    wl_quotes_map = get_cached_quotes_map(wl_syms)
+    for item in all_watchlist:
+        sym = item["ticker"]
+        q = wl_quotes_map.get(sym) or stock_engine.get_realtime_quote(sym)
+        alerts = watchlist_db.check_price_alerts(sym, q["price"])
+        active_alerts.extend(alerts)
 
 if active_alerts:
     st.sidebar.markdown("---")
@@ -152,7 +196,7 @@ if navigation == "📊 Tổng quan Thị trường":
     st.title("📊 Tổng Quan Thị Trường & Radar Tín Hiệu Kỹ Thuật")
     st.caption("Cập nhật chỉ số VN-Index, độ rộng thị trường, bảng tổng hợp tín hiệu hành động và giá tức thì")
 
-    mkt_data = market_engine.get_market_overview()
+    mkt_data = get_cached_market_overview()
     indexes = mkt_data["indexes"]
 
     # Hiển thị 4 cột chỉ số chính
@@ -175,7 +219,7 @@ if navigation == "📊 Tổng quan Thị trường":
     b_col1.metric("🟢 Mã Tăng giá", f"{breadth['advances']} mã")
     b_col2.metric("🔴 Mã Giảm giá", f"{breadth['declines']} mã")
     b_col3.metric("🟡 Không đổi", f"{breadth['no_changes']} mã")
-    b_col4.metric("💰 Thanh khoản ước tính", f"{breadth['liquidity_bil']:,.0f} Tỷ VND")
+    b_col4.metric("💰 Thanh khoản ước tính", f"{breadth['liquidity_bil']:,.0f} Tỷ VNĐ")
 
     st.markdown("---")
 
@@ -189,8 +233,11 @@ if navigation == "📊 Tổng quan Thị trường":
     if not fav_tickers:
         fav_tickers = DEFAULT_TICKERS
 
-    quotes = stock_engine.get_quotes_batch(fav_tickers)
-    quotes_dict = {q["ticker"]: q for q in quotes}
+    quotes_dict = get_cached_quotes_map(tuple(fav_tickers))
+    quotes = [quotes_dict[sym] for sym in fav_tickers if sym in quotes_dict]
+    if not quotes:
+        quotes = stock_engine.get_quotes_batch(fav_tickers)
+        quotes_dict = {q["ticker"]: q for q in quotes}
 
     signal_summaries = []
     buy_count = 0
@@ -198,7 +245,7 @@ if navigation == "📊 Tổng quan Thị trường":
     sell_count = 0
 
     for sym in fav_tickers:
-        q = quotes_dict.get(sym, stock_engine.get_realtime_quote(sym))
+        q = quotes_dict.get(sym) or stock_engine.get_realtime_quote(sym)
         tech = get_stock_technical_summary(sym)
         if tech:
             action = tech["action"]
@@ -253,15 +300,15 @@ if navigation == "📊 Tổng quan Thị trường":
         tech = item["tech"]
         radar_records.append({
             "Mã CK": sym,
-            "Giá Khớp (k)": f"{q['price']:,.2f}",
-            "Giá (VNĐ)": f"{q['price']*1000:,.0f} đ",
+            "Giá Khớp": f"{q['price']:,.2f}",
+            "Giá Thực Tế (VNĐ)": f"{q['price']*1000:,.0f} VNĐ",
             "% Biến Động": f"{'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%",
             "Tín Hiệu Hành Động": f"{item['badge_icon']} {tech['action']}",
             "Điểm Sức Mạnh": f"{tech['score']}/100",
             "RSI(14)": f"{tech['rsi']:.1f}",
             "Vị Thế MA20": tech["ma20_status"],
-            "Hỗ Trợ (k)": f"{tech['support']:,.2f}",
-            "Kháng Cự (k)": f"{tech['resistance']:,.2f}",
+            "Hỗ Trợ": f"{tech['support']:,.2f}",
+            "Kháng Cự": f"{tech['resistance']:,.2f}",
             "Lý Do Kỹ Thuật Chính": tech["primary_reason"],
         })
     st.dataframe(pd.DataFrame(radar_records), width="stretch", hide_index=True)
@@ -284,7 +331,7 @@ if navigation == "📊 Tổng quan Thị trường":
                         <span style="font-size: 12px; font-weight: 700; color: {p_color};">{item['badge_icon']} {tech['action'].split('/')[0].strip()}</span>
                     </div>
                     <div style="font-size: 19px; font-weight: 800; color: {p_color};">
-                        {q['price']:,.2f} k <span style="font-size: 12px; color: #94a3b8;">({'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%)</span>
+                        {q['price']:,.2f} <span style="font-size: 12px; color: #94a3b8;">({'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%)</span>
                     </div>
                     <div style="font-size: 12px; color: #cbd5e1; margin-top: 6px; line-height: 1.5;">
                         🎯 <b>Điểm KT:</b> {tech['score']}/100 | <b>RSI:</b> {tech['rsi']:.1f}<br>
@@ -307,8 +354,8 @@ if navigation == "📊 Tổng quan Thị trường":
     for q in quotes:
         table_records.append({
             "Mã CK": q["ticker"],
-            "Giá Khớp (k)": f"{q['price']:,.2f}",
-            "Giá Thực Tế (VNĐ)": f"{q['price']*1000:,.0f} đ",
+            "Giá Khớp": f"{q['price']:,.2f}",
+            "Giá Thực Tế (VNĐ)": f"{q['price']*1000:,.0f} VNĐ",
             "Thay Đổi": f"{'+' if q['change'] >= 0 else ''}{q['change']:,.2f}",
             "% Biến Động": f"{'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%",
             "Khối Lượng": f"{q['volume']:,}",
@@ -339,18 +386,18 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
             f_col1, f_col2, f_col3 = st.columns(3)
             new_ticker = f_col1.text_input("Mã Cổ Phiếu (VD: HPG, FPT, VNM)*").strip().upper()
             target_p = f_col2.number_input(
-                "Giá Mục Tiêu Chốt Lời (k VNĐ)", 
+                "Giá Mục Tiêu Chốt Lời (Điểm)", 
                 min_value=0.0, 
                 step=0.5, 
                 value=0.0,
-                help="Đơn vị: nghìn đồng (VD: nhập 32.5 tương đương 32,500 đ)"
+                help="Nhập điểm giá (VD: 32.5 tương đương 32,500 VNĐ)"
             )
             stop_l = f_col3.number_input(
-                "Ngưỡng Cắt Lỗ (k VNĐ)", 
+                "Ngưỡng Cắt Lỗ (Điểm)", 
                 min_value=0.0, 
                 step=0.5, 
                 value=0.0,
-                help="Đơn vị: nghìn đồng (VD: nhập 26.0 tương đương 26,000 đ)"
+                help="Nhập điểm giá (VD: 26.0 tương đương 26,000 VNĐ)"
             )
             
             f_note = st.text_input("Ghi chú chiến lược đầu tư (Tùy chọn)", placeholder="Ví dụ: Mua gom vùng hỗ trợ, chờ báo cáo Q3")
@@ -378,9 +425,12 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
     if not watchlist_items:
         st.info("Danh sách yêu thích đang trống. Hãy thêm mã cổ phiếu ở phần phía trên!")
     else:
+        wl_syms = tuple(item["ticker"] for item in watchlist_items)
+        wl_quotes_map = get_cached_quotes_map(wl_syms)
+
         for item in watchlist_items:
             sym = item["ticker"]
-            q = stock_engine.get_realtime_quote(sym)
+            q = wl_quotes_map.get(sym) or stock_engine.get_realtime_quote(sym)
             tech = get_stock_technical_summary(sym)
             p_class = "price-up" if q["change"] > 0 else ("price-down" if q["change"] < 0 else "price-ref")
 
@@ -392,7 +442,7 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
                 c1.caption(f"Thêm: {item.get('added_at', 'N/A')[:10]}")
                 
                 # Cột 2: Giá Realtime
-                c2.markdown(f"<div class='{p_class}' style='font-size: 20px;'>{q['price']:,.2f} k</div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='{p_class}' style='font-size: 20px;'>{q['price']:,.2f}</div>", unsafe_allow_html=True)
                 c2.caption(f"{'+' if q['change'] >= 0 else ''}{q['change']:,.2f} ({'+' if q['pct_change'] >= 0 else ''}{q['pct_change']:.2f}%)")
 
                 # Cột 3: Tín hiệu kỹ thuật nhanh
@@ -406,8 +456,8 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
                 # Cột 4: Ngưỡng cảnh báo Target & Stop
                 cur_tp = float(item.get("target_price") or 0.0)
                 cur_sl = float(item.get("stop_loss") or 0.0)
-                tp_str = f"{cur_tp:,.2f} k ({cur_tp*1000:,.0f} đ)" if cur_tp > 0 else "Chưa đặt"
-                sl_str = f"{cur_sl:,.2f} k ({cur_sl*1000:,.0f} đ)" if cur_sl > 0 else "Chưa đặt"
+                tp_str = f"{cur_tp:,.2f} ({cur_tp*1000:,.0f} VNĐ)" if cur_tp > 0 else "Chưa đặt"
+                sl_str = f"{cur_sl:,.2f} ({cur_sl*1000:,.0f} VNĐ)" if cur_sl > 0 else "Chưa đặt"
                 c4.markdown(f"🎯 **Target:** `{tp_str}`\n\n⚠️ **Stop:** `{sl_str}`")
 
                 # Cột 5: Ghi chú
@@ -418,18 +468,18 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
                     st.markdown(f"#### ⚙️ Chỉnh sửa mã **{sym}**")
                     with st.form(key=f"edit_form_{sym}"):
                         edit_tp = st.number_input(
-                            "🎯 Giá Mục Tiêu Chốt Lời (k VNĐ)",
+                            "🎯 Giá Mục Tiêu Chốt Lời (Điểm)",
                             min_value=0.0,
                             step=0.5,
                             value=cur_tp,
-                            help="Đơn vị: nghìn đồng (VD: nhập 32.5 tương đương 32,500 đ. Nhập 0 để hủy ngưỡng)"
+                            help="Nhập điểm giá (VD: 32.5 tương đương 32,500 VNĐ. Nhập 0 để hủy ngưỡng)"
                         )
                         edit_sl = st.number_input(
-                            "⚠️ Ngưỡng Cắt Lỗ (k VNĐ)",
+                            "⚠️ Ngưỡng Cắt Lỗ (Điểm)",
                             min_value=0.0,
                             step=0.5,
                             value=cur_sl,
-                            help="Đơn vị: nghìn đồng (VD: nhập 26.0 tương đương 26,000 đ. Nhập 0 để hủy ngưỡng)"
+                            help="Nhập điểm giá (VD: 26.0 tương đương 26,000 VNĐ. Nhập 0 để hủy ngưỡng)"
                         )
                         edit_note = st.text_input("Ghi chú chiến lược", value=item.get("note") or "")
                         edit_alert = st.checkbox("Bật cảnh báo tự động", value=item.get("alert_enabled", True))
@@ -443,12 +493,14 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
                                 note=edit_note,
                                 alert_enabled=edit_alert,
                             )
+                            st.cache_data.clear()
                             st.success(f"Đã cập nhật mã {sym} thành công!")
                             time.sleep(0.4)
                             st.rerun()
 
                 if c6.button("🗑️ Xóa", key=f"del_{sym}", width="stretch"):
                     watchlist_db.remove(sym)
+                    st.cache_data.clear()
                     st.rerun()
 
                 st.markdown("<hr style='margin: 8px 0; border-color: #334155;'>", unsafe_allow_html=True)
@@ -477,19 +529,17 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
     forecast_days = t_col3.slider("Số phiên dự báo:", min_value=3, max_value=15, value=7)
 
     if active_sym:
-        # Lấy dữ liệu nến lịch sử và tính chỉ báo
-        with st.spinner(f"Đang phân tích dữ liệu cho mã {active_sym}..."):
-            df = stock_engine.get_historical_ohlcv(active_sym, days=180)
-            df_indicators = calculate_indicators(df)
-            signals = generate_technical_signals(df_indicators)
-            forecast = forecast_price_trend(df_indicators, forecast_days=forecast_days)
-            ml_result = train_and_forecast_ml(df_indicators, forecast_days=forecast_days, target_ticker=active_sym)
+        # Lấy dữ liệu nến lịch sử và tính chỉ báo (được lưu cache 300s giúp chuyển tab cực nhanh)
+        with st.spinner(f"Đang nạp dữ liệu phân tích cho mã {active_sym}..."):
+            df, df_indicators, signals, forecast, ml_result = get_cached_ticker_analysis(
+                active_sym, days=180, forecast_days=forecast_days
+            )
             quote = stock_engine.get_realtime_quote(active_sym)
 
         # Header thông tin mã
         h1, h2, h3, h4 = st.columns(4)
         h1.metric("Mã Cổ Phiếu", active_sym, quote.get("status", "LIVE"))
-        h2.metric("Giá Khớp Hiện Tại", f"{quote['price']:,.2f} k ({quote['price']*1000:,.0f} đ)", f"{'+' if quote['change'] >= 0 else ''}{quote['change']:,.2f} ({quote['pct_change']:+.2f}%)")
+        h2.metric("Giá Khớp Hiện Tại", f"{quote['price']:,.2f} ({quote['price']*1000:,.0f} VNĐ)", f"{'+' if quote['change'] >= 0 else ''}{quote['change']:,.2f} ({quote['pct_change']:+.2f}%)")
         h3.metric("Khối Lượng Khớp", f"{quote['volume']:,}")
         
         # Action badge
@@ -580,10 +630,10 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
                     kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
                     c_sign_avg = "+" if avg_return >= 0 else ""
-                    kpi_col1.metric("Giá Kỳ Vọng Trung Bình", f"{avg_price:,.2f} k ({avg_price*1000:,.0f} đ)", f"{c_sign_avg}{avg_return:.2f}%")
+                    kpi_col1.metric("Giá Kỳ Vọng Trung Bình", f"{avg_price:,.2f} ({avg_price*1000:,.0f} VNĐ)", f"{c_sign_avg}{avg_return:.2f}%")
                     kpi_col2.metric("Số Mô Hình Đang Bật", f"{len(selected_models)}/5 mô hình", ml_result.get("consensus_view", "ĐA CHIỀU"))
-                    kpi_col3.metric(f"Lạc Quan: {best_model.split()[0]}", f"{all_models_dict[best_model]['final_price']:,.2f} k", f"{all_models_dict[best_model]['expected_return']:+.2f}%")
-                    kpi_col4.metric(f"Thận Trọng: {worst_model.split()[0]}", f"{all_models_dict[worst_model]['final_price']:,.2f} k", f"{all_models_dict[worst_model]['expected_return']:+.2f}%")
+                    kpi_col3.metric(f"Lạc Quan: {best_model.split()[0]}", f"{all_models_dict[best_model]['final_price']:,.2f}", f"{all_models_dict[best_model]['expected_return']:+.2f}%")
+                    kpi_col4.metric(f"Thận Trọng: {worst_model.split()[0]}", f"{all_models_dict[worst_model]['final_price']:,.2f}", f"{all_models_dict[worst_model]['expected_return']:+.2f}%")
 
                     # 3. BIỂU ĐỒ ĐỐI CHIẾU ĐA CHIỀU (PLOTLY CHART) ĐẶT NGAY TRỌNG TÂM
                     ch_title_col, ch_opt_col = st.columns([3, 2])
@@ -604,25 +654,24 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên (Theo Các Mô Hình Đang Bật)")
                     base_p = quote["price"]
 
-                    def _fmt_price_cell(p_val, base_val, suffix=" k"):
+                    def _fmt_price_cell(p_val, base_val, suffix=""):
                         diff = round(p_val - base_val, 2)
                         if diff > 0.001:
                             return f'<span style="color: #16a34a; font-weight: 700;">▲ {p_val:,.2f}{suffix}</span>'
                         elif diff < -0.001:
                             return f'<span style="color: #dc2626; font-weight: 700;">▼ {p_val:,.2f}{suffix}</span>'
                         else:
-                            # Không đổi: không thêm dấu gì, chữ màu vàng đất nhạt (Light Ochre / Khaki / Sand Gold)
                             return f'<span style="color: #c2944b; font-weight: 700;">{p_val:,.2f}{suffix}</span>'
 
                     def _fmt_vnd_cell(p_val, base_val):
                         diff = round(p_val - base_val, 2)
                         vnd = p_val * 1000
                         if diff > 0.001:
-                            return f'<span style="color: #16a34a; font-weight: 700;">▲ {vnd:,.0f} đ</span>'
+                            return f'<span style="color: #16a34a; font-weight: 700;">▲ {vnd:,.0f} VNĐ</span>'
                         elif diff < -0.001:
-                            return f'<span style="color: #dc2626; font-weight: 700;">▼ {vnd:,.0f} đ</span>'
+                            return f'<span style="color: #dc2626; font-weight: 700;">▼ {vnd:,.0f} VNĐ</span>'
                         else:
-                            return f'<span style="color: #c2944b; font-weight: 700;">{vnd:,.0f} đ</span>'
+                            return f'<span style="color: #c2944b; font-weight: 700;">{vnd:,.0f} VNĐ</span>'
 
                     def _fmt_pct_cell(p_val, base_val):
                         diff = round(p_val - base_val, 2)
@@ -702,7 +751,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     if avg_return >= 3.0:
                         trend_headline = "🟢 XU HƯỚNG TĂNG GIÁ MẠNH (STRONG BULLISH)"
                         trend_color = "success"
-                        action_advice = "Ưu tiên nắm giữ cổ phiếu, canh các nhịp điều chỉnh trong phiên để gia tăng tỷ trọng. Vùng giá chốt lời kỳ vọng hướng tới mốc " + f"**{avg_price:,.2f} k ({avg_price*1000:,.0f} VNĐ)**."
+                        action_advice = "Ưu tiên nắm giữ cổ phiếu, canh các nhịp điều chỉnh trong phiên để gia tăng tỷ trọng. Vùng giá chốt lời kỳ vọng hướng tới mốc " + f"**{avg_price:,.2f} ({avg_price*1000:,.0f} VNĐ)**."
                     elif avg_return >= 0.5:
                         trend_headline = "🔵 XU HƯỚNG PHỤC HỒI / TĂNG TRƯỞNG NHẸ (MILD BULLISH)"
                         trend_color = "info"
@@ -724,9 +773,9 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
                     analysis_narrative = f"""
                     **{trend_headline}**
-                    - **Mức giá dự phóng bình quân:** `{avg_price:,.2f} k` ({avg_price*1000:,.0f} đ), tương ứng biến động kỳ vọng `{c_sign_avg}{avg_return:.2f}%` sau {len(future_dates)} phiên tới.
-                    - **Kịch bản cao nhất:** Mô hình **{best_model}** dự báo giá có thể chạm mốc **{all_models_dict[best_model]['final_price']:,.2f} k** ({all_models_dict[best_model]['expected_return']:+.2f}%).
-                    - **Kịch bản bảo thủ:** Mô hình **{worst_model}** nhận định giá ở mức **{all_models_dict[worst_model]['final_price']:,.2f} k** ({all_models_dict[worst_model]['expected_return']:+.2f}%).
+                    - **Mức giá dự phóng bình quân:** `{avg_price:,.2f}` ({avg_price*1000:,.0f} VNĐ), tương ứng biến động kỳ vọng `{c_sign_avg}{avg_return:.2f}%` sau {len(future_dates)} phiên tới.
+                    - **Kịch bản cao nhất:** Mô hình **{best_model}** dự báo giá có thể chạm mốc **{all_models_dict[best_model]['final_price']:,.2f}** ({all_models_dict[best_model]['expected_return']:+.2f}%).
+                    - **Kịch bản bảo thủ:** Mô hình **{worst_model}** nhận định giá ở mức **{all_models_dict[worst_model]['final_price']:,.2f}** ({all_models_dict[worst_model]['expected_return']:+.2f}%).
                     - **Đánh giá rủi ro & Đồng thuận:** {risk_comment}
                     - **Khuyến nghị hành động:** {action_advice}
                     """
@@ -750,7 +799,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
             f_col1, f_col2, f_col3 = st.columns(3)
             f_col1.metric("Xu Hướng Chủ Đạo", forecast.get("outlook", "N/A"))
             f_col2.metric("Xác Suất Tăng Giá", f"{forecast.get('upward_probability', 50)}%")
-            f_col3.metric("Mục Tiêu Cơ Sở (Base)", f"{forecast.get('target_price_base', 0):,.1f}", f"{forecast.get('expected_return_pct', 0):+.2f}%")
+            f_col3.metric("Mục Tiêu Cơ Sở (Base)", f"{forecast.get('target_price_base', 0):,.2f}", f"{forecast.get('expected_return_pct', 0):+.2f}%")
 
             st.info(f"👉 **Khuyến nghị:** {forecast.get('recommendation', 'Quan sát')}")
 
@@ -775,15 +824,7 @@ elif navigation == "📑 Xuất Báo cáo Phân tích":
 
     if rep_ticker:
         with st.spinner("Đang biên soạn báo cáo phân tích..."):
-            quote = stock_engine.get_realtime_quote(rep_ticker)
-            df = stock_engine.get_historical_ohlcv(rep_ticker, days=180)
-            df_ind = calculate_indicators(df)
-            signals = generate_technical_signals(df_ind)
-            forecast = forecast_price_trend(df_ind, forecast_days=7)
-            wl_info = watchlist_db.get_by_ticker(rep_ticker)
-
-            md_report = generate_ticker_report_markdown(rep_ticker, quote, signals, forecast, wl_info)
-            html_report = generate_ticker_report_html(rep_ticker, quote, signals, forecast, wl_info)
+            md_report, html_report = get_cached_report_content(rep_ticker)
 
         r_col1, r_col2 = st.columns([3, 1])
         r_col1.markdown(f"### Xem trước Báo Cáo: **{rep_ticker}**")

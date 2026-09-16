@@ -188,11 +188,11 @@ def train_multi_model_forecast(
         row = {
             "Phiên": f"T+{step_idx+1}",
             "Ngày": future_dates[step_idx],
-            "Gradient Boosting": f"{preds_gb[step_idx]:,.2f} k",
-            "Random Forest": f"{preds_rf[step_idx]:,.2f} k",
-            "Quán Tính Kỹ Thuật": f"{preds_tech[step_idx]:,.2f} k",
-            "Monte Carlo": f"{preds_mc[step_idx]:,.2f} k",
-            "Đồng Thuận AI": f"{preds_consensus[step_idx]:,.2f} k",
+            "Gradient Boosting": f"{preds_gb[step_idx]:,.2f}",
+            "Random Forest": f"{preds_rf[step_idx]:,.2f}",
+            "Quán Tính Kỹ Thuật": f"{preds_tech[step_idx]:,.2f}",
+            "Monte Carlo": f"{preds_mc[step_idx]:,.2f}",
+            "Đồng Thuận AI": f"{preds_consensus[step_idx]:,.2f}",
         }
         comparison_table.append(row)
 

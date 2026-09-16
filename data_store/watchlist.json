@@ -71,6 +71,15 @@
       "alert_enabled": true,
       "updated_at": "2026-09-15 10:37:48",
       "added_at": "2026-09-15 10:37:48"
+    },
+    "9": {
+      "ticker": "ABB",
+      "target_price": null,
+      "stop_loss": null,
+      "note": "",
+      "alert_enabled": true,
+      "updated_at": "2026-09-16 11:14:55",
+      "added_at": "2026-09-16 11:14:55"
     }
   }
 }
