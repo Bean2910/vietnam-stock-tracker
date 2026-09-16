@@ -86,9 +86,9 @@ navigation = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ Cấu hình Tự động Làm mới")
 auto_refresh = st.sidebar.checkbox("Bật tự động làm mới", value=False)
-refresh_rate = st.sidebar.slider("Tần suất (giây)", min_value=5, max_value=60, value=AUTO_REFRESH_INTERVAL, step=5)
+refresh_rate = st.sidebar.slider("Tần suất (giây)", min_value=1, max_value=60, value=AUTO_REFRESH_INTERVAL, step=1)
 
-if st.sidebar.button("🔄 Làm mới dữ liệu ngay", use_container_width=True):
+if st.sidebar.button("🔄 Làm mới dữ liệu ngay", width="stretch"):
     st.rerun()
 
 # Kiểm tra & hiển thị cảnh báo giá tức thì từ Watchlist
@@ -168,7 +168,7 @@ if navigation == "📊 Tổng quan Thị trường":
             "Nguồn Dữ Liệu": q.get("status", "LIVE"),
         })
 
-    st.dataframe(pd.DataFrame(table_records), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(table_records), width="stretch", hide_index=True)
 
 
 # -------------------------------------------------------------
@@ -191,7 +191,7 @@ elif navigation == "⭐ Danh mục Yêu thích (Watchlist)":
             f_note = st.text_input("Ghi chú chiến lược đầu tư (Tùy chọn)", placeholder="Ví dụ: Mua gom vùng hỗ trợ, chờ báo cáo Q3")
             f_alert = st.checkbox("Bật cảnh báo tự động khi chạm ngưỡng", value=True)
             
-            submitted = st.form_submit_button("Lưu Vào Watchlist", use_container_width=True)
+            submitted = st.form_submit_button("Lưu Vào Watchlist", width="stretch")
             if submitted:
                 if new_ticker:
                     watchlist_db.add_or_update(
@@ -306,7 +306,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                 show_bb=s_bb,
                 show_rsi=s_rsi,
             )
-            st.plotly_chart(chart_fig, use_container_width=True)
+            st.plotly_chart(chart_fig, width="stretch")
 
             # Khối lý do tín hiệu
             st.subheader("💡 Tín Hiệu Phân Tích Kỹ Thuật Tự Động")
@@ -385,7 +385,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     )
                     v_mode = "forecast_only" if "Toàn Màn Hình" in view_opt else "with_history"
                     ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym, view_mode=v_mode)
-                    st.plotly_chart(ml_fig, use_container_width=True)
+                    st.plotly_chart(ml_fig, width="stretch")
 
                     # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN (THEO CÁC MÔ HÌNH ĐÃ CHỌN)
                     st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên (Theo Các Mô Hình Đang Bật)")
@@ -529,7 +529,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     # 6. BIỂU ĐỒ TRỌNG SỐ ĐÓNG GÓP (FEATURE IMPORTANCE)
                     st.markdown("---")
                     fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
-                    st.plotly_chart(fi_fig, use_container_width=True)
+                    st.plotly_chart(fi_fig, width="stretch")
 
         with tab_forecast:
             st.subheader(f"🎲 Mô Phỏng Kịch Bản Xác Suất Monte Carlo ({forecast_days} Phiên Tới)")
@@ -543,11 +543,11 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
             # Đồ thị dự báo Monte Carlo Fan Chart
             forecast_fig = create_forecast_chart(df_indicators, forecast, active_sym)
-            st.plotly_chart(forecast_fig, use_container_width=True)
+            st.plotly_chart(forecast_fig, width="stretch")
 
             # Bảng chi tiết từng phiên
             st.markdown("#### Bảng Kịch Bản Giá Chi Tiết Theo Phiên")
-            st.dataframe(forecast.get("forecast_df"), use_container_width=True, hide_index=True)
+            st.dataframe(forecast.get("forecast_df"), width="stretch", hide_index=True)
 
 
 # -------------------------------------------------------------
@@ -581,7 +581,7 @@ elif navigation == "📑 Xuất Báo cáo Phân tích":
             data=html_report,
             file_name=f"Bao_Cao_{rep_ticker}_{datetime.now().strftime('%Y%m%d')}.html",
             mime="text/html",
-            use_container_width=True,
+            width="stretch",
         )
 
         st.markdown(md_report)
