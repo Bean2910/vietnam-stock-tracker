@@ -148,6 +148,9 @@ nav_options = [
     "📑 Xuất Báo cáo Phân tích",
 ]
 
+if "redirect_page" in st.session_state:
+    st.session_state["nav_radio"] = st.session_state.pop("redirect_page")
+
 if "nav_radio" not in st.session_state:
     st.session_state["nav_radio"] = nav_options[0]
 
@@ -344,7 +347,7 @@ if navigation == "📊 Tổng quan Thị trường":
                 """, unsafe_allow_html=True)
                 if st.button(f"🔎 Soi sâu {sym}", key=f"quick_view_{sym}", width="stretch"):
                     st.session_state["target_sym"] = sym
-                    st.session_state["nav_radio"] = "🔍 Phân tích Chi tiết & Dự báo"
+                    st.session_state["redirect_page"] = "🔍 Phân tích Chi tiết & Dự báo"
                     st.rerun()
 
     st.markdown("---")
