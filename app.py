@@ -20,6 +20,9 @@ from src.analysis.indicators import calculate_indicators, generate_technical_sig
 from src.analysis.forecasting import forecast_price_trend
 from src.analysis.ml_forecasting import train_and_forecast_ml
 from src.reporting.report_builder import generate_ticker_report_html, generate_ticker_report_markdown
+import importlib
+import src.ui.components as ui_components
+importlib.reload(ui_components)
 from src.ui.components import (
     create_candlestick_chart,
     create_forecast_chart,
@@ -562,18 +565,47 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
         ])
 
         with tab_chart:
-            # Tùy chọn hiển thị chỉ báo
-            c_opt1, c_opt2, c_opt3 = st.columns(3)
-            s_sma = c_opt1.checkbox("Hiển thị Đường Trung Bình (SMA 20, 50)", value=True)
-            s_bb = c_opt2.checkbox("Hiển thị Dải Bollinger Bands", value=True)
-            s_rsi = c_opt3.checkbox("Hiển thị Chỉ số RSI(14)", value=True)
+            # 1. Bộ lọc phạm vi thời gian hiển thị & phiên tham chiếu
+            filter_col1, filter_col2 = st.columns([3, 2])
+            with filter_col1:
+                candle_range_mode = st.radio(
+                    "Chế độ hiển thị nến:",
+                    ["Toàn bộ lịch sử (180 phiên)", "Kèm n phiên lịch sử tham chiếu"],
+                    index=0,
+                    horizontal=True,
+                    key=f"candle_mode_{active_sym}",
+                )
+            with filter_col2:
+                if candle_range_mode == "Kèm n phiên lịch sử tham chiếu":
+                    n_candles = st.slider(
+                        "Số phiên tham chiếu (n):",
+                        min_value=3,
+                        max_value=60,
+                        value=5,
+                        step=1,
+                        help="Chọn số phiên gần nhất để phóng to hành động giá nến và so sánh với mức giá tham chiếu",
+                        key=f"candle_slider_{active_sym}",
+                    )
+                else:
+                    n_candles = None
 
+            # 2. Tùy chọn hiển thị chỉ báo & đường tham chiếu
+            c_opt1, c_opt2, c_opt3, c_opt4 = st.columns(4)
+            s_sma = c_opt1.checkbox("Đường SMA (20, 50)", value=True)
+            s_bb = c_opt2.checkbox("Dải Bollinger Bands", value=True)
+            s_rsi = c_opt3.checkbox("Chỉ số RSI (14)", value=True)
+            s_ref = c_opt4.checkbox("Đường Giá Tham Chiếu", value=True)
+
+            ref_p = quote.get("ref_price") or quote.get("price")
             chart_fig = create_candlestick_chart(
                 df_indicators,
                 active_sym,
                 show_sma=s_sma,
                 show_bb=s_bb,
                 show_rsi=s_rsi,
+                n_sessions=n_candles,
+                show_ref_line=s_ref,
+                ref_price=ref_p,
             )
             st.plotly_chart(chart_fig, width="stretch")
 
@@ -642,18 +674,38 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     kpi_col4.metric(f"Thận Trọng: {worst_model.split()[0]}", f"{all_models_dict[worst_model]['final_price']:,.2f}", f"{all_models_dict[worst_model]['expected_return']:+.2f}%")
 
                     # 3. BIỂU ĐỒ ĐỐI CHIẾU ĐA CHIỀU (PLOTLY CHART) ĐẶT NGAY TRỌNG TÂM
-                    ch_title_col, ch_opt_col = st.columns([3, 2])
+                    ch_title_col, ch_opt_col = st.columns([3, 3])
                     ch_title_col.markdown(f"#### 📈 Biểu Đồ Đối Chiếu Đường Giá Dự Phóng ({len(future_dates)} Phiên)")
-                    view_opt = ch_opt_col.radio(
-                        "Chế độ hiển thị biểu đồ:",
-                        ["🔍 Toàn Màn Hình (Phóng to các mô hình)", "📊 Kèm 5 phiên lịch sử tham chiếu"],
-                        index=0,
-                        horizontal=True,
-                        label_visibility="collapsed",
-                        key="forecast_chart_view_mode",
-                    )
+                    with ch_opt_col:
+                        view_opt = st.radio(
+                            "Chế độ hiển thị biểu đồ:",
+                            ["🔍 Toàn Màn Hình (Chỉ mô hình)", "📊 Kèm n phiên lịch sử tham chiếu"],
+                            index=0,
+                            horizontal=True,
+                            label_visibility="collapsed",
+                            key="forecast_chart_view_mode",
+                        )
+                        if "Kèm n phiên" in view_opt:
+                            n_ml_hist = st.slider(
+                                "Số phiên lịch sử tham chiếu (n):",
+                                min_value=3,
+                                max_value=30,
+                                value=5,
+                                step=1,
+                                key="slider_ml_n_hist",
+                            )
+                        else:
+                            n_ml_hist = 5
+
                     v_mode = "forecast_only" if "Toàn Màn Hình" in view_opt else "with_history"
-                    ml_fig = create_multi_model_comparison_chart(df_indicators, ml_result, selected_models, active_sym, view_mode=v_mode)
+                    ml_fig = create_multi_model_comparison_chart(
+                        df_indicators,
+                        ml_result,
+                        selected_models,
+                        active_sym,
+                        view_mode=v_mode,
+                        hist_len=n_ml_hist,
+                    )
                     st.plotly_chart(ml_fig, width="stretch")
 
                     # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN (THEO CÁC MÔ HÌNH ĐÃ CHỌN)

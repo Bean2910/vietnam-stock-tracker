@@ -14,15 +14,23 @@ def create_candlestick_chart(
     show_sma: bool = True,
     show_bb: bool = True,
     show_rsi: bool = True,
+    n_sessions: Optional[int] = None,
+    show_ref_line: bool = False,
+    ref_price: Optional[float] = None,
 ) -> go.Figure:
     """
     Tạo biểu đồ kỹ thuật chuẩn TradingView bằng Plotly:
-    - Hàng 1: Nến Nhật + SMA + Bollinger Bands
+    - Hàng 1: Nến Nhật + SMA + Bollinger Bands (+ Đường giá tham chiếu nếu bật)
     - Hàng 2: Khối lượng giao dịch (Volume Bar)
     - Hàng 3: Chỉ báo RSI(14)
+    - Hỗ trợ chọn hiển thị n phiên lịch sử tham chiếu gần nhất
     """
+    plot_df = df.tail(n_sessions).copy() if (n_sessions and n_sessions > 0) else df.copy()
+
     rows = 3 if show_rsi else 2
     row_heights = [0.6, 0.2, 0.2] if show_rsi else [0.75, 0.25]
+
+    title_main = f"Biểu đồ Kỹ thuật {ticker} ({n_sessions} phiên gần nhất)" if (n_sessions and n_sessions > 0 and n_sessions < len(df)) else f"Biểu đồ Kỹ thuật {ticker}"
 
     fig = make_subplots(
         rows=rows,
@@ -30,17 +38,17 @@ def create_candlestick_chart(
         shared_xaxes=True,
         vertical_spacing=0.03,
         row_heights=row_heights,
-        subplot_titles=(f"Biểu đồ Kỹ thuật {ticker}", "Khối lượng (Volume)", "Chỉ số RSI (14)") if show_rsi else (f"Biểu đồ Kỹ thuật {ticker}", "Khối lượng"),
+        subplot_titles=(title_main, "Khối lượng (Volume)", "Chỉ số RSI (14)") if show_rsi else (title_main, "Khối lượng"),
     )
 
     # 1. Nến Nhật (Candlestick)
     fig.add_trace(
         go.Candlestick(
-            x=df.index,
-            open=df["open"],
-            high=df["high"],
-            low=df["low"],
-            close=df["close"],
+            x=plot_df.index,
+            open=plot_df["open"],
+            high=plot_df["high"],
+            low=plot_df["low"],
+            close=plot_df["close"],
             name=ticker,
             increasing_line_color="#10b981",
             decreasing_line_color="#ef4444",
@@ -51,48 +59,61 @@ def create_candlestick_chart(
 
     # 2. Các đường SMA
     if show_sma:
-        if "SMA20" in df.columns:
+        if "SMA20" in plot_df.columns:
             fig.add_trace(
-                go.Scatter(x=df.index, y=df["SMA20"], mode="lines", name="SMA 20", line=dict(color="#f59e0b", width=1.5)),
+                go.Scatter(x=plot_df.index, y=plot_df["SMA20"], mode="lines", name="SMA 20", line=dict(color="#f59e0b", width=1.5)),
                 row=1, col=1,
             )
-        if "SMA50" in df.columns:
+        if "SMA50" in plot_df.columns:
             fig.add_trace(
-                go.Scatter(x=df.index, y=df["SMA50"], mode="lines", name="SMA 50", line=dict(color="#3b82f6", width=1.5)),
+                go.Scatter(x=plot_df.index, y=plot_df["SMA50"], mode="lines", name="SMA 50", line=dict(color="#3b82f6", width=1.5)),
                 row=1, col=1,
             )
 
     # 3. Dải Bollinger Bands
-    if show_bb and "BB_Upper" in df.columns and "BB_Lower" in df.columns:
+    if show_bb and "BB_Upper" in plot_df.columns and "BB_Lower" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=df.index, y=df["BB_Upper"], mode="lines", name="BB Upper", line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot")),
+            go.Scatter(x=plot_df.index, y=plot_df["BB_Upper"], mode="lines", name="BB Upper", line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot")),
             row=1, col=1,
         )
         fig.add_trace(
             go.Scatter(
-                x=df.index, y=df["BB_Lower"], mode="lines", name="BB Lower",
+                x=plot_df.index, y=plot_df["BB_Lower"], mode="lines", name="BB Lower",
                 line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot"),
                 fill="tonexty", fillcolor="rgba(156, 163, 175, 0.08)",
             ),
             row=1, col=1,
         )
 
+    # 3b. Đường giá tham chiếu ngang (Reference Price Line)
+    if show_ref_line and ref_price is not None and ref_price > 0:
+        fig.add_hline(
+            y=ref_price,
+            line_dash="dot",
+            line_color="#eab308",
+            line_width=1.5,
+            annotation_text=f"Tham chiếu: {ref_price:,.2f}",
+            annotation_position="bottom right",
+            annotation_font=dict(size=11, color="#eab308"),
+            row=1, col=1,
+        )
+
     # 4. Khối lượng Volume
-    colors = ["#10b981" if c >= o else "#ef4444" for c, o in zip(df["close"], df["open"])]
+    colors = ["#10b981" if c >= o else "#ef4444" for c, o in zip(plot_df["close"], plot_df["open"])]
     fig.add_trace(
-        go.Bar(x=df.index, y=df["volume"], name="Volume", marker_color=colors, showlegend=False),
+        go.Bar(x=plot_df.index, y=plot_df["volume"], name="Volume", marker_color=colors, showlegend=False),
         row=2, col=1,
     )
-    if "VOL_SMA20" in df.columns:
+    if "VOL_SMA20" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=df.index, y=df["VOL_SMA20"], mode="lines", name="Vol SMA20", line=dict(color="#6366f1", width=1.2)),
+            go.Scatter(x=plot_df.index, y=plot_df["VOL_SMA20"], mode="lines", name="Vol SMA20", line=dict(color="#6366f1", width=1.2)),
             row=2, col=1,
         )
 
     # 5. Chỉ báo RSI
-    if show_rsi and "RSI14" in df.columns:
+    if show_rsi and "RSI14" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=df.index, y=df["RSI14"], mode="lines", name="RSI (14)", line=dict(color="#8b5cf6", width=1.8)),
+            go.Scatter(x=plot_df.index, y=plot_df["RSI14"], mode="lines", name="RSI (14)", line=dict(color="#8b5cf6", width=1.8)),
             row=3, col=1,
         )
         # Đường ngưỡng 70 và 30
@@ -193,12 +214,13 @@ def create_multi_model_comparison_chart(
     selected_models: List[str],
     ticker: str,
     view_mode: str = "forecast_only",
+    hist_len: int = 5,
 ) -> go.Figure:
     """
     Biểu đồ đối chiếu đa chiều nhiều mô hình dự báo trên cùng 1 đồ thị tương tác Plotly:
     - Chế độ "forecast_only" (Mặc định): Toàn bộ chiều ngang 100% của biểu đồ được dành trọn vẹn
       cho các mô hình dự phóng từ điểm xuất phát Hiện tại (T0) đến T+N. Không bị dồn vào một góc nhỏ.
-    - Chế độ "with_history": Hiển thị thêm 5 phiên lịch sử tham chiếu gần nhất.
+    - Chế độ "with_history": Hiển thị thêm n phiên lịch sử tham chiếu gần nhất (mặc định 5 phiên).
     - Trục Y tự động co giãn (Auto-scale) ôm sát biên độ giá dự báo để phóng to các biến động.
     """
     fig = go.Figure()
@@ -210,10 +232,10 @@ def create_multi_model_comparison_chart(
     last_y = float(df["close"].iloc[-1])
 
     if view_mode == "with_history":
-        # Kèm 5 phiên lịch sử gần nhất để làm mốc so sánh
-        hist_len = min(5, len(df))
-        hist = df.tail(hist_len).copy()
-        hist_x = [f"T-{hist_len - 1 - i} ({d.strftime('%d/%m') if hasattr(d, 'strftime') else str(d)[:5]})" for i, d in enumerate(hist.index)]
+        # Kèm n phiên lịch sử gần nhất để làm mốc so sánh
+        actual_hist_len = min(max(2, hist_len), len(df))
+        hist = df.tail(actual_hist_len).copy()
+        hist_x = [f"T-{actual_hist_len - 1 - i} ({d.strftime('%d/%m') if hasattr(d, 'strftime') else str(d)[:5]})" for i, d in enumerate(hist.index)]
         last_x = hist_x[-1]
 
         fig.add_trace(
