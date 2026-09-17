@@ -13,8 +13,10 @@ def generate_ticker_report_markdown(
     signals: Dict[str, Any],
     forecast: Dict[str, Any],
     watchlist_info: Optional[Dict[str, Any]] = None,
+    fund_info: Optional[Dict[str, Any]] = None,
+    beta_info: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Tạo báo cáo chi tiết dạng Markdown"""
+    """Tạo báo cáo chi tiết dạng Markdown kèm chỉ số FA và Beta"""
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     current_price = quote_info.get("price", 0)
     change = quote_info.get("change", 0)
@@ -29,6 +31,30 @@ def generate_ticker_report_markdown(
 
     reasons_md = "\n".join([f"- {r}" for r in signals.get("reasons", [])])
 
+    beta_str = f"{beta_info.get('beta', 1.0):.2f} ({beta_info.get('classification', 'Đồng pha thị trường')})" if beta_info else "1.00"
+
+    fa_section = ""
+    if fund_info:
+        p = fund_info.get("profitability", {})
+        v = fund_info.get("valuation", {})
+        f = fund_info.get("financial_health", {})
+        fa_section = f"""
+## 2. PHÂN TÍCH CƠ BẢN (FA) & SỨC KHỎE TÀI CHÍNH
+- **Đánh giá chung**: **{fund_info.get('rating_badge', '')} {fund_info.get('rating', '')}** (Điểm FA: `{fund_info.get('score_fa', 0)}/100`)
+- **Nhóm sinh lời**:
+  * EPS: `{p.get('eps', 0):,}` VNĐ | Tăng trưởng EPS: `+{p.get('eps_growth', 0):.1f}%`
+  * ROE: `{p.get('roe', 0):.1f}%` | ROA: `{p.get('roa', 0):.1f}%`
+  * Biên LN gộp: `{p.get('gross_margin', 0):.1f}%` | Biên LN ròng: `{p.get('net_margin', 0):.1f}%`
+- **Nhóm định giá**:
+  * P/E hiện tại: `{v.get('pe', 0):.2f}x` (Ngành: `{v.get('pe_industry', 0):.1f}x`)
+  * P/B hiện tại: `{v.get('pb', 0):.2f}x` | PEG: `{v.get('peg', 0):.2f}`
+- **Nhóm an toàn tài chính**:
+  * D/E (Nợ/VCSH): `{f.get('debt_to_equity', 0):.2f}`
+  * Khả năng thanh toán hiện hành (Current Ratio): `{f.get('current_ratio', 0):.2f}`
+
+---
+"""
+
     md = f"""# 📊 BÁO CÁO PHÂN TÍCH CỔ PHIẾU: **{ticker}**
 *Thời gian xuất báo cáo: {now_str}*
 
@@ -37,18 +63,19 @@ def generate_ticker_report_markdown(
 ## 1. TÌNH HÌNH THỊ TRƯỜNG HIỆN TẠI
 - **Giá hiện tại**: `{current_price:,.2f}` ({current_price*1000:,.0f} VNĐ) ({color_emoji} {change:+,.2f} / {pct_change:+.2f}%)
 - **Khối lượng giao dịch**: `{volume:,.0f}` cổ phiếu
+- **Hệ số Beta (Độ nhạy so với VN-Index)**: `{beta_str}`
 - **Vùng dao động gần nhất (Hỗ trợ - Kháng cự)**: `{signals.get('support', 0):,.2f}` — `{signals.get('resistance', 0):,.2f}`
 
 ---
-
-## 2. ĐÁNH GIÁ PHÂN TÍCH KỸ THUẬT & TÍN HIỆU
+{fa_section}
+## 3. ĐÁNH GIÁ PHÂN TÍCH KỸ THUẬT & TÍN HIỆU
 - **Khuyến nghị kỹ thuật**: **{signals.get('action', 'TRUNG LẬP')}** (Điểm số kỹ thuật: `{signals.get('score', 50)}/100`)
 - **Tín hiệu chi tiết**:
 {reasons_md}
 
 ---
 
-## 3. DỰ BÁO XU HƯỚNG & KỊCH BẢN GIÁ ({forecast.get('forecast_days', 7)} PHIÊN TỚI)
+## 4. DỰ BÁO XU HƯỚNG & KỊCH BẢN GIÁ ({forecast.get('forecast_days', 7)} PHIÊN TỚI)
 - **Định hướng xu hướng**: **{forecast.get('outlook', 'N/A')}**
 - **Xác suất tăng giá**: `{forecast.get('upward_probability', 50)}%`
 - **Giá mục tiêu cơ sở (Base Case)**: `{forecast.get('target_price_base', current_price):,.1f}` ({forecast.get('expected_return_pct', 0):+.2f}%)
@@ -58,7 +85,7 @@ def generate_ticker_report_markdown(
 
 ---
 
-## 4. THÔNG TIN DANH MỤC THEO DÕI (WATCHLIST)
+## 5. THÔNG TIN DANH MỤC THEO DÕI (WATCHLIST)
 - **Giá mục tiêu cá nhân**: `{f'{target_price:,.1f}' if target_price else 'Chưa cài đặt'}`
 - **Ngưỡng cắt lỗ**: `{f'{stop_loss:,.1f}' if stop_loss else 'Chưa cài đặt'}`
 - **Ghi chú chiến lược**: {note}
@@ -75,6 +102,8 @@ def generate_ticker_report_html(
     signals: Dict[str, Any],
     forecast: Dict[str, Any],
     watchlist_info: Optional[Dict[str, Any]] = None,
+    fund_info: Optional[Dict[str, Any]] = None,
+    beta_info: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Tạo báo cáo giao diện HTML đẹp mắt, chuyên nghiệp, hỗ trợ in ấn hoặc lưu trữ"""
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -195,20 +224,7 @@ def generate_ticker_report_html(
             font-size: 14px;
         }}
         th {{
-            background: #f8fafc;
-            padding: 10px;
-            text-align: left;
-            border-bottom: 2px solid #cbd5e1;
-            color: #475569;
-        }}
-        .footer {{
-            margin-top: 40px;
-            text-align: center;
-            font-size: 12px;
-            color: #94a3b8;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 16px;
-        }}
+         }}
     </style>
 </head>
 <body>
@@ -223,25 +239,50 @@ def generate_ticker_report_html(
             </div>
         </div>
 
-        <div class="grid">
+        <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
             <div class="stat-box" style="border-left-color: {price_color};">
-                <div class="stat-label">Giá Thị Trường Hiện Tại</div>
-                <div class="stat-value" style="color: {price_color};">{current_price:,.2f} <span style="font-size: 14px; font-weight: 500; color: #64748b;">({current_price*1000:,.0f} VNĐ)</span></div>
+                <div class="stat-label">Giá Khớp Lệnh</div>
+                <div class="stat-value" style="color: {price_color};">{current_price:,.2f} <span style="font-size: 13px; font-weight: 500; color: #64748b;">({current_price*1000:,.0f} đ)</span></div>
                 <div style="font-size: 13px; color: {price_color}; font-weight: 600;">{change:+,.2f} ({pct_change:+.2f}%)</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">Khối Lượng Khớp Lệnh</div>
+                <div class="stat-label">Khối Lượng Khớp</div>
                 <div class="stat-value">{volume:,.0f}</div>
                 <div style="font-size: 13px; color: #64748b;">Cổ phiếu trong phiên</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">Kháng Cự / Hỗ Trợ Gần Nhất</div>
+                <div class="stat-label">Hệ Số Beta</div>
+                <div class="stat-value">{beta_info.get('beta', 1.0):.2f}</div>
+                <div style="font-size: 12px; color: #64748b;">{beta_info.get('classification', 'Đồng pha VN-Index')}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Vùng Hỗ Trợ - Kháng Cự</div>
                 <div class="stat-value" style="font-size: 18px; line-height: 28px;">{signals.get('support', 0):,.2f} - {signals.get('resistance', 0):,.2f}</div>
-                <div style="font-size: 13px; color: #64748b;">Khung 20 phiên</div>
+                <div style="font-size: 12px; color: #64748b;">Khung 20 phiên</div>
             </div>
         </div>
 
-        <div class="section-title">1. Nhận Định & Tín Hiệu Kỹ Thuật</div>
+        {f'''
+        <div class="section-title">1. Phân Tích Cơ Bản (FA) & Định Giá Doanh Nghiệp</div>
+        <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 16px; font-weight: bold; color: #0f172a;">{fund_info.get("company_name", ticker)} ({fund_info.get("industry", "")})</span>
+                <span style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">{fund_info.get("rating_badge", "")} {fund_info.get("rating", "")}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; font-size: 13px;">
+                <div>• <b>EPS:</b> {fund_info.get("profitability", {}).get("eps", 0):,} đ (+{fund_info.get("profitability", {}).get("eps_growth", 0):.1f}%)</div>
+                <div>• <b>ROE:</b> {fund_info.get("profitability", {}).get("roe", 0):.1f}% | <b>ROA:</b> {fund_info.get("profitability", {}).get("roa", 0):.1f}%</div>
+                <div>• <b>P/E:</b> {fund_info.get("valuation", {}).get("pe", 0):.1f}x (Ngành: {fund_info.get("valuation", {}).get("pe_industry", 0):.1f}x)</div>
+                <div>• <b>PEG:</b> {fund_info.get("valuation", {}).get("peg", 0):.2f} | <b>P/B:</b> {fund_info.get("valuation", {}).get("pb", 0):.1f}x</div>
+                <div>• <b>Biên LN gộp:</b> {fund_info.get("profitability", {}).get("gross_margin", 0):.1f}%</div>
+                <div>• <b>Biên LN ròng:</b> {fund_info.get("profitability", {}).get("net_margin", 0):.1f}%</div>
+                <div>• <b>D/E:</b> {fund_info.get("financial_health", {}).get("debt_to_equity", 0):.2f}</div>
+                <div>• <b>Current Ratio:</b> {fund_info.get("financial_health", {}).get("current_ratio", 0):.2f}</div>
+            </div>
+        </div>
+        ''' if fund_info else ''}
+
+        <div class="section-title">2. Nhận Định & Tín Hiệu Kỹ Thuật</div>
         <ul style="background: #f8fafc; padding: 16px 20px 16px 36px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px;">
             {reasons_li}
         </ul>
