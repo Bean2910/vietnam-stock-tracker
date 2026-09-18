@@ -81,5 +81,62 @@
       "updated_at": "2026-09-18 11:40:16",
       "added_at": "2026-09-16 11:14:55"
     }
+  },
+  "trading_journal": {
+    "1": {
+      "ticker": "FPT",
+      "strategy": "Breakout N\u1ec1n Gi\u00e1",
+      "buy_price": 132.0,
+      "sell_price": 146.0,
+      "shares": 1000,
+      "pnl_pct": 10.6,
+      "result": "WIN",
+      "date": "10/09/2026",
+      "notes": "V\u01b0\u1ee3t \u0111\u1ec9nh 50 phi\u00ean k\u00e8m vol l\u1edbn"
+    },
+    "2": {
+      "ticker": "HPG",
+      "strategy": "B\u1eaft \u0110\u00e1y H\u1ed7 Tr\u1ee3",
+      "buy_price": 27.5,
+      "sell_price": 29.5,
+      "shares": 3000,
+      "pnl_pct": 7.3,
+      "result": "WIN",
+      "date": "05/09/2026",
+      "notes": "Test cung th\u00e0nh c\u00f4ng t\u1ea1i MA50"
+    },
+    "3": {
+      "ticker": "SSI",
+      "strategy": "Breakout N\u1ec1n Gi\u00e1",
+      "buy_price": 35.0,
+      "sell_price": 33.2,
+      "shares": 2000,
+      "pnl_pct": -5.1,
+      "result": "LOSS",
+      "date": "28/08/2026",
+      "notes": "G\u1eb7p c\u1ea3n l\u1edbn \u0111i\u1ec1u ch\u1ec9nh c\u1eaft l\u1ed7 5%"
+    },
+    "4": {
+      "ticker": "MWG",
+      "strategy": "\u0110\u1ea7u T\u01b0 Gi\u00e1 Tr\u1ecb",
+      "buy_price": 62.0,
+      "sell_price": 69.5,
+      "shares": 1500,
+      "pnl_pct": 12.1,
+      "result": "WIN",
+      "date": "15/08/2026",
+      "notes": "K\u1ef3 v\u1ecdng l\u1ee3i nhu\u1eadn B\u00e1ch H\u00f3a Xanh"
+    },
+    "5": {
+      "ticker": "VHM",
+      "strategy": "B\u1eaft \u0110\u00e1y H\u1ed7 Tr\u1ee3",
+      "buy_price": 44.0,
+      "sell_price": 41.5,
+      "shares": 1000,
+      "pnl_pct": -5.7,
+      "result": "LOSS",
+      "date": "02/08/2026",
+      "notes": "Th\u1ee7ng \u0111\u00e1y ng\u1eafn h\u1ea1n k\u1ef7 lu\u1eadt c\u1eaft l\u1ed7"
+    }
   }
 }
