@@ -111,7 +111,7 @@ def create_candlestick_chart(
     # 3. Dải Bollinger Bands
     if show_bb and "BB_Upper" in plot_df.columns and "BB_Lower" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=plot_df.index, y=plot_df["BB_Upper"], mode="lines", name="BB Upper", line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot")),
+            go.Scatter(x=plot_df.index, y=plot_df["BB_Upper"], mode="lines", name="BB Upper", line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot"), hoverinfo="skip"),
             row=1, col=1,
         )
         fig.add_trace(
@@ -119,6 +119,7 @@ def create_candlestick_chart(
                 x=plot_df.index, y=plot_df["BB_Lower"], mode="lines", name="BB Lower",
                 line=dict(color="rgba(156, 163, 175, 0.6)", width=1, dash="dot"),
                 fill="tonexty", fillcolor="rgba(156, 163, 175, 0.08)",
+                hoverinfo="skip",
             ),
             row=1, col=1,
         )
@@ -144,7 +145,7 @@ def create_candlestick_chart(
     )
     if "VOL_SMA20" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=plot_df.index, y=plot_df["VOL_SMA20"], mode="lines", name="Vol SMA20", line=dict(color="#6366f1", width=1.2)),
+            go.Scatter(x=plot_df.index, y=plot_df["VOL_SMA20"], mode="lines", name="Vol SMA20", line=dict(color="#6366f1", width=1.2), hoverinfo="skip"),
             row=2, col=1,
         )
 
@@ -158,6 +159,7 @@ def create_candlestick_chart(
         fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", line_width=1, row=rsi_row, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color="#10b981", line_width=1, row=rsi_row, col=1)
         fig.add_hline(y=50, line_dash="dot", line_color="rgba(148, 163, 184, 0.4)", line_width=1, row=rsi_row, col=1)
+        fig.update_yaxes(range=[0, 100], fixedrange=True, tickvals=[30, 50, 70], row=rsi_row, col=1)
 
     # 6. Chỉ báo MACD
     if has_macd and macd_row is not None:
@@ -178,10 +180,22 @@ def create_candlestick_chart(
 
     fig.update_layout(
         height=total_height,
-        margin=dict(l=10, r=10, t=30, b=10),
+        margin=dict(l=65, r=20, t=30, b=35),
         xaxis_rangeslider_visible=False,
-        hovermode="x unified",
+        hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        dragmode="pan",
+        uirevision=ticker,
+        transition=dict(duration=0),
+    )
+    # Khóa cố định trục Y khi zoom để chỉ zoom trục thời gian X, tắt automargin để cố định lề tuyệt đối (chống lắc)
+    fig.update_yaxes(fixedrange=True, automargin=False)
+    # Cố định lề X và định dạng ngày đồng nhất chống co giật nhãn trục
+    fig.update_xaxes(
+        automargin=False,
+        tickformat="%d/%m",
+        hoverformat="%d/%m/%Y",
+        rangebreaks=[dict(bounds=["sat", "mon"])],
     )
     return fig
 
@@ -254,12 +268,16 @@ def create_forecast_chart(
         )
     )
 
+    fig.update_yaxes(fixedrange=True)
     fig.update_layout(
         title=f"Dự Báo Xu Hướng Giá {ticker} ({forecast.get('forecast_days', 7)} Phiên Tới)",
         height=450,
         margin=dict(l=10, r=10, t=50, b=10),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        dragmode="pan",
+        uirevision=ticker,
+        transition=dict(duration=0),
     )
     return fig
 
@@ -408,7 +426,12 @@ def create_multi_model_comparison_chart(
         layout_kwargs["yaxis"]["range"] = y_range
         layout_kwargs["yaxis"]["autorange"] = False
 
+    layout_kwargs["dragmode"] = "pan"
+    layout_kwargs["uirevision"] = ticker
+    layout_kwargs["transition"] = dict(duration=0)
+
     fig.update_layout(**layout_kwargs)
+    fig.update_yaxes(fixedrange=True)
     return fig
 
 

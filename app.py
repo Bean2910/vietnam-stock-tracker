@@ -45,9 +45,31 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Cấu hình tương tác biểu đồ chuyên nghiệp (Lăn chuột mượt mà, chống rung giật)
+PLOTLY_CONFIG = {
+    "scrollZoom": True,
+    "displayModeBar": True,
+    "displaylogo": False,
+    "responsive": True,
+    "doubleClick": "reset",
+    "showTips": False,
+    "modeBarButtonsToAdd": ["drawline", "drawopenpath", "eraseshape"],
+    "toImageButtonOptions": {
+        "format": "png",
+        "filename": "chart_export",
+        "height": 800,
+        "width": 1200,
+        "scale": 2,
+    },
+}
+
 # Custom CSS giao diện hiện đại & các thẻ KPI
 st.markdown("""
 <style>
+    /* Chống rung giật trang web khi lăn chuột zoom trên biểu đồ */
+    .stPlotlyChart {
+        overscroll-behavior: contain !important;
+    }
     .kpi-card {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         border: 1px solid #334155;
@@ -688,21 +710,27 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
             filter_col1, filter_col2 = st.columns([3, 2])
             with filter_col1:
                 candle_range_mode = st.radio(
-                    "Chế độ hiển thị nến:",
-                    ["Toàn bộ lịch sử (180 phiên)", "Kèm n phiên lịch sử tham chiếu"],
+                    "Khung thời gian nến:",
+                    ["Toàn bộ lịch sử (180 phiên)", "1 Tháng (~20 phiên)", "3 Tháng (~60 phiên)", "6 Tháng (~120 phiên)", "Tùy chỉnh số phiên"],
                     index=0,
                     horizontal=True,
                     key=f"candle_mode_{active_sym}",
                 )
             with filter_col2:
-                if candle_range_mode == "Kèm n phiên lịch sử tham chiếu":
+                if candle_range_mode == "1 Tháng (~20 phiên)":
+                    n_candles = 20
+                elif candle_range_mode == "3 Tháng (~60 phiên)":
+                    n_candles = 60
+                elif candle_range_mode == "6 Tháng (~120 phiên)":
+                    n_candles = 120
+                elif candle_range_mode == "Tùy chỉnh số phiên":
                     n_candles = st.slider(
-                        "Số phiên tham chiếu (n):",
-                        min_value=3,
-                        max_value=60,
-                        value=5,
-                        step=1,
-                        help="Chọn số phiên gần nhất để phóng to hành động giá nến và so sánh với mức giá tham chiếu",
+                        "Số phiên hiển thị:",
+                        min_value=5,
+                        max_value=180,
+                        value=30,
+                        step=5,
+                        help="Chọn số phiên gần nhất để phóng to hành động giá nến",
                         key=f"candle_slider_{active_sym}",
                     )
                 else:
@@ -730,7 +758,8 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                 show_ref_line=s_ref,
                 ref_price=ref_p,
             )
-            st.plotly_chart(chart_fig, width="stretch")
+            st.caption("🔍 **Mẹo tương tác biểu đồ:** **Giữ chuột trái kéo (Pan)** để trượt biểu đồ qua lại | **Lăn con lăn chuột (Mouse Scroll)** để Phóng to / Thu nhỏ | **Nhấp đúp chuột (Double click)** để Reset về ban đầu | Bấm **⛶ (Fullscreen)** góc trên phải để mở Toàn màn hình.")
+            st.plotly_chart(chart_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
 
             # Khối thông tin Hệ số Beta & Tín hiệu kỹ thuật chuyên sâu
             beta_col, sig_col = st.columns([1.2, 1.8])
@@ -917,7 +946,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                         view_mode=v_mode,
                         hist_len=n_ml_hist,
                     )
-                    st.plotly_chart(ml_fig, width="stretch")
+                    st.plotly_chart(ml_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
 
                     # 4. BẢNG SO SÁNH CHI TIẾT TỪNG PHIÊN (THEO CÁC MÔ HÌNH ĐÃ CHỌN)
                     st.markdown("#### 📋 Bảng So Sánh Dự Báo Chi Tiết Từng Phiên (Theo Các Mô Hình Đang Bật)")
@@ -1060,7 +1089,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
                     # 6. BIỂU ĐỒ TRỌNG SỐ ĐÓNG GÓP (FEATURE IMPORTANCE)
                     st.markdown("---")
                     fi_fig = create_feature_importance_chart(ml_result.get("feature_importance", []))
-                    st.plotly_chart(fi_fig, width="stretch")
+                    st.plotly_chart(fi_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
 
         with tab_forecast:
             st.subheader(f"🎲 Mô Phỏng Kịch Bản Xác Suất Monte Carlo ({forecast_days} Phiên Tới)")
@@ -1074,7 +1103,7 @@ elif navigation == "🔍 Phân tích Chi tiết & Dự báo":
 
             # Đồ thị dự báo Monte Carlo Fan Chart
             forecast_fig = create_forecast_chart(df_indicators, forecast, active_sym)
-            st.plotly_chart(forecast_fig, width="stretch")
+            st.plotly_chart(forecast_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
 
             # Bảng chi tiết từng phiên
             st.markdown("#### Bảng Kịch Bản Giá Chi Tiết Theo Phiên")
