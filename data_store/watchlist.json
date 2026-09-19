@@ -92,7 +92,8 @@
       "pnl_pct": 10.6,
       "result": "WIN",
       "date": "10/09/2026",
-      "notes": "V\u01b0\u1ee3t \u0111\u1ec9nh 50 phi\u00ean k\u00e8m vol l\u1edbn"
+      "notes": "V\u01b0\u1ee3t \u0111\u1ec9nh 50 phi\u00ean k\u00e8m vol l\u1edbn",
+      "is_mock": true
     },
     "2": {
       "ticker": "HPG",
@@ -103,7 +104,8 @@
       "pnl_pct": 7.3,
       "result": "WIN",
       "date": "05/09/2026",
-      "notes": "Test cung th\u00e0nh c\u00f4ng t\u1ea1i MA50"
+      "notes": "Test cung th\u00e0nh c\u00f4ng t\u1ea1i MA50",
+      "is_mock": true
     },
     "3": {
       "ticker": "SSI",
@@ -114,7 +116,8 @@
       "pnl_pct": -5.1,
       "result": "LOSS",
       "date": "28/08/2026",
-      "notes": "G\u1eb7p c\u1ea3n l\u1edbn \u0111i\u1ec1u ch\u1ec9nh c\u1eaft l\u1ed7 5%"
+      "notes": "G\u1eb7p c\u1ea3n l\u1edbn \u0111i\u1ec1u ch\u1ec9nh c\u1eaft l\u1ed7 5%",
+      "is_mock": true
     },
     "4": {
       "ticker": "MWG",
@@ -125,7 +128,8 @@
       "pnl_pct": 12.1,
       "result": "WIN",
       "date": "15/08/2026",
-      "notes": "K\u1ef3 v\u1ecdng l\u1ee3i nhu\u1eadn B\u00e1ch H\u00f3a Xanh"
+      "notes": "K\u1ef3 v\u1ecdng l\u1ee3i nhu\u1eadn B\u00e1ch H\u00f3a Xanh",
+      "is_mock": true
     },
     "5": {
       "ticker": "VHM",
@@ -136,7 +140,13 @@
       "pnl_pct": -5.7,
       "result": "LOSS",
       "date": "02/08/2026",
-      "notes": "Th\u1ee7ng \u0111\u00e1y ng\u1eafn h\u1ea1n k\u1ef7 lu\u1eadt c\u1eaft l\u1ed7"
+      "notes": "Th\u1ee7ng \u0111\u00e1y ng\u1eafn h\u1ea1n k\u1ef7 lu\u1eadt c\u1eaft l\u1ed7",
+      "is_mock": true
+    }
+  },
+  "journal_meta": {
+    "1": {
+      "initialized": true
     }
   }
 }

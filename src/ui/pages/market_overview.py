@@ -180,12 +180,17 @@ def render_market_overview_page():
             "Xác nhận dòng tiền",
             help="Xuất hiện từ ngày thứ 4 đến ngày thứ 7 của nhịp nỗ lực hồi phục. Chỉ số tăng mạnh (> 1.2% - 1.5%) đi kèm vol đột biến, xác nhận xác suất tạo đáy 70-80%."
         )
-        col_d3.markdown(f"""
-        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; font-size: 13px; line-height: 1.5;">
-            <b>Đánh giá rủi ro O'Neil:</b> {dist_data.get('assessment', '')}<br>
-            <b>Trạng thái FTD:</b> {dist_data.get('ftd_detail', '')}
-        </div>
-        """, unsafe_allow_html=True)
+        with col_d3:
+            risk_lvl = dist_data.get("risk_level", "AN TOÀN")
+            assessment_text = dist_data.get("assessment", "")
+            ftd_text = dist_data.get("ftd_detail", "")
+            content = f"**Đánh giá rủi ro O'Neil:** {assessment_text}\n\n**Trạng thái FTD:** {ftd_text}"
+            if any(k in risk_lvl for k in ["ĐỎ", "RẤT CAO", "NGUY CƠ"]):
+                st.error(content, icon="⚠️")
+            elif any(k in risk_lvl for k in ["VÀNG", "THẬN TRỌNG"]):
+                st.warning(content, icon="⚠️")
+            else:
+                st.info(content, icon="💡")
 
         dist_days_list = dist_data.get("distribution_days_detail", [])
         if dist_days_list:
@@ -199,6 +204,7 @@ def render_market_overview_page():
         rot_col1, rot_col2 = st.columns([1, 1])
         with rot_col1:
             st.markdown("##### 🧭 Vòng Luân Chuyển Dòng Tiền Giữa Các Nhóm:")
+            st.caption("Phân bổ hiệu suất và thanh khoản theo 3 nhóm ngành trọng điểm")
             sec_list = sector_data.get("sectors", [])
             sb_records = []
             for s_info in sec_list:
@@ -210,12 +216,11 @@ def render_market_overview_page():
                     "Số Mã": s_info.get("tickers_count", 0),
                     "Đặc Điểm": s_info.get("desc", ""),
                 })
-            st.dataframe(pd.DataFrame(sb_records), width="stretch", hide_index=True)
-            st.info(f"💡 **Vòng luân chuyển:** **{sector_data.get('stage_title', '')}**\n\n{sector_data.get('stage_desc', '')}")
+            st.dataframe(pd.DataFrame(sb_records), width="stretch", height=220, hide_index=True)
 
         with rot_col2:
             st.markdown("##### 🏆 Cổ Phiếu Dẫn Dắt (Leader Stocks):")
-            st.caption("Cổ phiếu khỏe nhất thị trường: Vượt đỉnh trước VN-Index hoặc giữ nền giá khi chỉ số chung giảm")
+            st.caption("Cổ phiếu khỏe nhất thị trường: Vượt đỉnh trước VN-Index hoặc giữ nền giá")
             leaders = sector_data.get("leader_stocks", [])
             if leaders:
                 ldr_records = []
@@ -226,10 +231,16 @@ def render_market_overview_page():
                         "Biến Động": f"{l.get('change', 0):+.2f}%",
                         "Nhóm Ngành": l.get("sector", ""),
                     })
-                st.dataframe(pd.DataFrame(ldr_records), width="stretch", hide_index=True)
-                st.warning("⚠️ **Cảnh báo suy yếu:** Khi các mã Leader gãy nền và sụt giảm khối lượng lớn, thị trường chung thường điều chỉnh theo sau đó 1 - 2 tuần.")
+                st.dataframe(pd.DataFrame(ldr_records), width="stretch", height=220, hide_index=True)
             else:
-                st.write("Đang cập nhật danh sách cổ phiếu dẫn dắt...")
+                st.info("Đang cập nhật danh sách cổ phiếu dẫn dắt...")
+
+        # 2 thẻ ghi chú / cảnh báo đặt ngang hàng nhau bên dưới 2 bảng
+        info_col1, info_col2 = st.columns([1, 1])
+        with info_col1:
+            st.info(f"💡 **Vòng luân chuyển:** **{sector_data.get('stage_title', '')}**\n\n{sector_data.get('stage_desc', '')}")
+        with info_col2:
+            st.warning("⚠️ **Cảnh báo suy yếu:** Khi các mã Leader gãy nền và sụt giảm khối lượng lớn, thị trường chung thường điều chỉnh theo sau đó 1 - 2 tuần.")
 
     st.markdown("---")
 

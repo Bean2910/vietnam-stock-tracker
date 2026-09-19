@@ -229,12 +229,35 @@ def render_portfolio_risk_page():
         j3.metric("📈 Profit Factor", f"{journal_stats['profit_factor']:.2f}", "Hệ số sinh lời tổng thể")
         j4.metric("📋 Tổng Số Lệnh Đã Chốt", f"{journal_stats['total_trades']} lệnh", "Dữ liệu lịch sử")
 
+        # Thanh công cụ quản lý dữ liệu mẫu & dữ liệu thật
+        with st.expander("⚙️ **Quản Lý Dữ Liệu Nhật Ký (Xóa Dữ Liệu Test / Reset / Sao Lưu)**", expanded=False):
+            st.caption("💾 *Dữ liệu thật của bạn được lưu trữ an toàn & cố định tại file CSDL cục bộ:* `data_store/watchlist.json` *(Bảng: `trading_journal`)*")
+            t_col1, t_col2, t_col3 = st.columns(3)
+            with t_col1:
+                if st.button("🗑️ Xóa 5 Lệnh Test Mẫu", width="stretch", help="Chỉ xóa các lệnh mẫu ban đầu (FPT, HPG, SSI, MWG, VHM), giữ lại toàn bộ lệnh thật bạn đã nhập"):
+                    deleted_cnt = journal_db.clear_mock_trades()
+                    st.toast(f"Đã xóa {deleted_cnt} lệnh test mẫu!", icon="✅")
+                    st.rerun()
+            with t_col2:
+                if st.button("⚠️ Xóa Toàn Bộ Nhật Ký", width="stretch", help="Xóa sạch toàn bộ dữ liệu nhật ký để làm mới từ đầu"):
+                    deleted_cnt = journal_db.clear_all_trades()
+                    st.toast("Đã làm sạch toàn bộ nhật ký giao dịch!", icon="🧹")
+                    st.rerun()
+            with t_col3:
+                if st.button("🔄 Nạp Lại Dữ Liệu Mẫu", width="stretch", help="Khôi phục lại 5 lệnh mẫu bất cứ khi nào muốn kiểm thử tính năng"):
+                    journal_db.reset_to_default_mock()
+                    st.toast("Đã nạp lại 5 lệnh test mẫu!", icon="🔄")
+                    st.rerun()
+
         st.markdown("---")
 
         j_col1, j_col2 = st.columns([1, 1])
         with j_col1:
             st.markdown("##### 🧭 Hiệu Suất Theo Chiến Lược Giao Dịch:")
-            st.dataframe(pd.DataFrame(journal_stats["strategy_summary"]), width="stretch", hide_index=True)
+            if journal_stats["strategy_summary"]:
+                st.dataframe(pd.DataFrame(journal_stats["strategy_summary"]), width="stretch", hide_index=True)
+            else:
+                st.info("Chưa có giao dịch nào được ghi nhận để thống kê theo chiến lược.")
 
         with j_col2:
             st.markdown("##### ➕ Ghi Thêm Lệnh Mới Vào Nhật Ký:")
@@ -255,31 +278,51 @@ def render_portfolio_risk_page():
                 if st.form_submit_button("Lưu Giao Dịch Vào Nhật Ký", width="stretch"):
                     if t_sym:
                         journal_db.add_trade(t_sym, t_strat, t_buy, t_sell, t_shares, t_note)
-                        st.success(f"Đã thêm giao dịch {t_sym} vào nhật ký!")
+                        st.toast(f"Đã lưu giao dịch thật của {t_sym} vào cơ sở dữ liệu!", icon="💾")
                         st.rerun()
 
         st.markdown("##### 📜 Lịch Sử Chi Tiết Các Lệnh Đã Thực Hiện:")
-        trade_rows = []
-        for t in all_trades:
-            pnl_val = t.get("pnl_pct", 0.0)
-            b_p = t.get("buy_price", 0)
-            s_p = t.get("sell_price", 0)
-            shs = t.get("shares", 1000)
-            pnl_money = (s_p - b_p) * 1000.0 * shs
-            trade_rows.append({
-                "Ngày": t.get("date", ""),
-                "Mã CK": t.get("ticker", ""),
-                "Chiến Lược": t.get("strategy", ""),
-                "Giá Mua": f"{b_p:,.2f} ({b_p * 1000:,.0f} đ)",
-                "Giá Bán": f"{s_p:,.2f} ({s_p * 1000:,.0f} đ)",
-                "Khối Lượng": f"{shs:,} CP",
-                "Tổng Vốn": f"{(b_p * 1000.0 * shs):,.0f} đ",
-                "% Lãi/Lỗ": f"{'+' if pnl_val >= 0 else ''}{pnl_val:.2f}%",
-                "Tiền Lãi/Lỗ": f"{'+' if pnl_money >= 0 else ''}{pnl_money:,.0f} đ",
-                "Kết Quả": "🟢 LÃI" if pnl_val > 0 else "🔴 LỖ",
-                "Ghi Chú": t.get("notes", ""),
-            })
-        st.dataframe(pd.DataFrame(trade_rows), width="stretch", hide_index=True)
+        if not all_trades:
+            st.info("📝 Bạn chưa có giao dịch nào trong nhật ký. Hãy sử dụng form **'➕ Ghi Thêm Lệnh Mới Vào Nhật Ký'** ở trên để bắt đầu lưu các lệnh thực tế của bạn!")
+        else:
+            trade_rows = []
+            for t in all_trades:
+                pnl_val = t.get("pnl_pct", 0.0)
+                b_p = t.get("buy_price", 0)
+                s_p = t.get("sell_price", 0)
+                shs = t.get("shares", 1000)
+                pnl_money = (s_p - b_p) * 1000.0 * shs
+                is_mock_item = t.get("is_mock", False) or t.get("ticker") in ["FPT", "HPG", "SSI", "MWG", "VHM"] and t.get("date") in ["10/09/2026", "05/09/2026", "28/08/2026", "15/08/2026", "02/08/2026"]
+                trade_rows.append({
+                    "Ngày": t.get("date", ""),
+                    "Mã CK": t.get("ticker", ""),
+                    "Loại": "🧪 Test" if is_mock_item else "💼 Thật",
+                    "Chiến Lược": t.get("strategy", ""),
+                    "Giá Mua": f"{b_p:,.2f} ({b_p * 1000:,.0f} đ)",
+                    "Giá Bán": f"{s_p:,.2f} ({s_p * 1000:,.0f} đ)",
+                    "Khối Lượng": f"{shs:,} CP",
+                    "Tổng Vốn": f"{(b_p * 1000.0 * shs):,.0f} đ",
+                    "% Lãi/Lỗ": f"{'+' if pnl_val >= 0 else ''}{pnl_val:.2f}%",
+                    "Tiền Lãi/Lỗ": f"{'+' if pnl_money >= 0 else ''}{pnl_money:,.0f} đ",
+                    "Kết Quả": "🟢 LÃI" if pnl_val > 0 else "🔴 LỖ",
+                    "Ghi Chú": t.get("notes", ""),
+                })
+            st.dataframe(pd.DataFrame(trade_rows), width="stretch", hide_index=True)
+
+            # Công cụ xóa từng lệnh cụ thể
+            with st.expander("❌ Xóa một lệnh cụ thể trong danh sách"):
+                del_options = {}
+                for idx, t in enumerate(all_trades):
+                    d_id = t.get("doc_id")
+                    label = f"#{idx+1} | {t.get('date')} - {t.get('ticker')} ({t.get('strategy')}) - Lãi/Lỗ: {t.get('pnl_pct'):+.2f}%"
+                    del_options[label] = d_id
+                
+                sel_label = st.selectbox("Chọn lệnh muốn xóa:", list(del_options.keys()))
+                if st.button("Xác nhận xóa lệnh đã chọn", type="secondary"):
+                    chosen_id = del_options[sel_label]
+                    if chosen_id and journal_db.delete_trade_by_id(chosen_id):
+                        st.toast(f"Đã xóa lệnh thành công!", icon="🗑️")
+                        st.rerun()
 
     # ---------------------------------------------------------
     # TAB 3: LỊCH SỰ KIỆN DOANH NGHIỆP & ĐÁO HẠN PHÁI SINH

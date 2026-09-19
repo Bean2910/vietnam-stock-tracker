@@ -134,14 +134,17 @@ def analyze_trading_journal(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
     - Hiệu suất theo chiến lược: Breakout, Bắt đáy hỗ trợ, Đầu tư giá trị
     """
     if not trades:
-        # Danh mục mẫu mặc định minh họa cho nhà đầu tư
-        trades = [
-            {"ticker": "FPT", "strategy": "Breakout Nền Giá", "buy_price": 132.0, "sell_price": 146.0, "pnl_pct": 10.6, "result": "WIN"},
-            {"ticker": "HPG", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 27.5, "sell_price": 29.5, "pnl_pct": 7.3, "result": "WIN"},
-            {"ticker": "SSI", "strategy": "Breakout Nền Giá", "buy_price": 35.0, "sell_price": 33.2, "pnl_pct": -5.1, "result": "LOSS"},
-            {"ticker": "MWG", "strategy": "Đầu Tư Giá Trị", "buy_price": 62.0, "sell_price": 69.5, "pnl_pct": 12.1, "result": "WIN"},
-            {"ticker": "VHM", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 44.0, "sell_price": 41.5, "pnl_pct": -5.7, "result": "LOSS"},
-        ]
+        return {
+            "total_trades": 0,
+            "win_count": 0,
+            "loss_count": 0,
+            "win_rate": 0.0,
+            "avg_win_pct": 0.0,
+            "avg_loss_pct": 0.0,
+            "profit_factor": 0.0,
+            "reward_risk_ratio": 0.0,
+            "strategy_summary": [],
+        }
 
     total_trades = len(trades)
     win_trades = [t for t in trades if t.get("pnl_pct", 0) > 0]

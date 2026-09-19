@@ -1,0 +1,12 @@
+[server]
+# Tu dong reload ngay lap tuc khi co bat ky file code nao thay doi
+runOnSave = true
+# Theo doi tat ca cac file con trong thu muc src/
+fileWatcherType = "poll"
+
+[client]
+# Khong can hien thi banner hoi Rerun nua ma tu dong refresh
+toolbarMode = "auto"
+
+[browser]
+gatherUsageStats = false

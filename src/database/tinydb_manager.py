@@ -127,29 +127,39 @@ class TinyDBWatchlistManager:
         return alerts
 
 
+DEFAULT_MOCK_TRADES = [
+    {"ticker": "FPT", "strategy": "Breakout Nền Giá", "buy_price": 132.0, "sell_price": 146.0, "shares": 1000, "pnl_pct": 10.6, "result": "WIN", "date": "10/09/2026", "notes": "Vượt đỉnh 50 phiên kèm vol lớn", "is_mock": True},
+    {"ticker": "HPG", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 27.5, "sell_price": 29.5, "shares": 3000, "pnl_pct": 7.3, "result": "WIN", "date": "05/09/2026", "notes": "Test cung thành công tại MA50", "is_mock": True},
+    {"ticker": "SSI", "strategy": "Breakout Nền Giá", "buy_price": 35.0, "sell_price": 33.2, "shares": 2000, "pnl_pct": -5.1, "result": "LOSS", "date": "28/08/2026", "notes": "Gặp cản lớn điều chỉnh cắt lỗ 5%", "is_mock": True},
+    {"ticker": "MWG", "strategy": "Đầu Tư Giá Trị", "buy_price": 62.0, "sell_price": 69.5, "shares": 1500, "pnl_pct": 12.1, "result": "WIN", "date": "15/08/2026", "notes": "Kỳ vọng lợi nhuận Bách Hóa Xanh", "is_mock": True},
+    {"ticker": "VHM", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 44.0, "sell_price": 41.5, "shares": 1000, "pnl_pct": -5.7, "result": "LOSS", "date": "02/08/2026", "notes": "Thủng đáy ngắn hạn kỷ luật cắt lỗ", "is_mock": True},
+]
+
+
 class TinyDBJournalManager:
     """Quản lý dữ liệu Nhật ký giao dịch (Trading Journal)"""
     def __init__(self, db_path=None):
         self.db_path = db_path or TINYDB_PATH
         self.db = TinyDB(self.db_path, indent=2, encoding="utf-8")
         self.table = self.db.table("trading_journal")
+        self.meta_table = self.db.table("journal_meta")
         self.JournalQuery = Query()
 
     def get_all_trades(self) -> List[Dict[str, Any]]:
         """Lấy tất cả các giao dịch đã ghi nhận"""
-        trades = self.table.all()
-        if not trades:
-            # Khởi tạo dữ liệu mẫu nếu chưa có giao dịch nào
-            default_trades = [
-                {"ticker": "FPT", "strategy": "Breakout Nền Giá", "buy_price": 132.0, "sell_price": 146.0, "shares": 1000, "pnl_pct": 10.6, "result": "WIN", "date": "10/09/2026", "notes": "Vượt đỉnh 50 phiên kèm vol lớn"},
-                {"ticker": "HPG", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 27.5, "sell_price": 29.5, "shares": 3000, "pnl_pct": 7.3, "result": "WIN", "date": "05/09/2026", "notes": "Test cung thành công tại MA50"},
-                {"ticker": "SSI", "strategy": "Breakout Nền Giá", "buy_price": 35.0, "sell_price": 33.2, "shares": 2000, "pnl_pct": -5.1, "result": "LOSS", "date": "28/08/2026", "notes": "Gặp cản lớn điều chỉnh cắt lỗ 5%"},
-                {"ticker": "MWG", "strategy": "Đầu Tư Giá Trị", "buy_price": 62.0, "sell_price": 69.5, "shares": 1500, "pnl_pct": 12.1, "result": "WIN", "date": "15/08/2026", "notes": "Kỳ vọng lợi nhuận Bách Hóa Xanh"},
-                {"ticker": "VHM", "strategy": "Bắt Đáy Hỗ Trợ", "buy_price": 44.0, "sell_price": 41.5, "shares": 1000, "pnl_pct": -5.7, "result": "LOSS", "date": "02/08/2026", "notes": "Thủng đáy ngắn hạn kỷ luật cắt lỗ"},
-            ]
-            for t in default_trades:
-                self.table.insert(t)
-            trades = self.table.all()
+        docs = self.table.all()
+        if not docs and not self.meta_table.all():
+            # Chỉ tự động khởi tạo dữ liệu mẫu ở lần chạy đầu tiên
+            for t in DEFAULT_MOCK_TRADES:
+                self.table.insert(t.copy())
+            self.meta_table.insert({"initialized": True})
+            docs = self.table.all()
+
+        trades = []
+        for d in docs:
+            item = dict(d)
+            item["doc_id"] = d.doc_id
+            trades.append(item)
         return trades
 
     def add_trade(
@@ -162,7 +172,7 @@ class TinyDBJournalManager:
         notes: str = "",
         date_str: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Thêm một giao dịch đã hoàn tất vào nhật ký"""
+        """Thêm một giao dịch đã hoàn tất vào nhật ký (dữ liệu thật)"""
         ticker = ticker.strip().upper()
         pnl_pct = round(((sell_price - buy_price) / buy_price) * 100.0, 2)
         result = "WIN" if pnl_pct > 0 else "LOSS"
@@ -179,12 +189,50 @@ class TinyDBJournalManager:
             "result": result,
             "date": date_val,
             "notes": notes,
+            "is_mock": False,
         }
-        self.table.insert(trade_doc)
+        doc_id = self.table.insert(trade_doc)
+        self.meta_table.upsert({"initialized": True}, Query().initialized.exists())
+        trade_doc["doc_id"] = doc_id
         return trade_doc
 
+    def delete_trade_by_id(self, doc_id: int) -> bool:
+        """Xóa một bản ghi giao dịch theo ID duy nhất"""
+        try:
+            self.table.remove(doc_ids=[doc_id])
+            return True
+        except Exception:
+            return False
+
+    def clear_mock_trades(self) -> int:
+        """Xóa tất cả các giao dịch mẫu (test data), giữ lại các giao dịch thật"""
+        mock_dates = {"10/09/2026", "05/09/2026", "28/08/2026", "15/08/2026", "02/08/2026"}
+        mock_syms = {"FPT", "HPG", "SSI", "MWG", "VHM"}
+        to_remove = []
+        for d in self.table.all():
+            if d.get("is_mock") or (d.get("ticker") in mock_syms and d.get("date") in mock_dates):
+                to_remove.append(d.doc_id)
+        if to_remove:
+            self.table.remove(doc_ids=to_remove)
+        self.meta_table.upsert({"initialized": True}, Query().initialized.exists())
+        return len(to_remove)
+
+    def clear_all_trades(self) -> int:
+        """Xóa toàn bộ nhật ký giao dịch (reset trắng)"""
+        count = len(self.table)
+        self.table.truncate()
+        self.meta_table.upsert({"initialized": True}, Query().initialized.exists())
+        return count
+
+    def reset_to_default_mock(self) -> int:
+        """Khôi phục lại 5 giao dịch mẫu để kiểm thử"""
+        for t in DEFAULT_MOCK_TRADES:
+            self.table.insert(t.copy())
+        self.meta_table.upsert({"initialized": True}, Query().initialized.exists())
+        return len(DEFAULT_MOCK_TRADES)
+
     def delete_trade(self, ticker: str, date_str: str) -> bool:
-        """Xóa bản ghi giao dịch"""
+        """Xóa bản ghi giao dịch theo mã và ngày"""
         removed = self.table.remove((self.JournalQuery.ticker == ticker) & (self.JournalQuery.date == date_str))
         return len(removed) > 0
 
