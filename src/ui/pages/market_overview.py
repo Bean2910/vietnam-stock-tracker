@@ -19,8 +19,11 @@ from src.ui.cache import (
     get_cached_sentiment_and_margin,
     get_cached_distribution_analysis,
     get_cached_sector_rotation,
+    get_cached_market_heatmap_stocks,
+    compute_heatmap_stats,
 )
-from src.ui.components import create_market_breadth_card
+from src.ui.components import create_market_breadth_card, create_sector_treemap_chart
+from src.ui.styles import PLOTLY_CONFIG
 
 
 def render_market_overview_page():
@@ -119,6 +122,76 @@ def render_market_overview_page():
 
     # Hiển thị Thanh đo độ rộng thị trường và Cảnh báo "Xanh vỏ đỏ lòng"
     st.markdown(create_market_breadth_card(breadth, vnindex_change=vnindex_change), unsafe_allow_html=True)
+
+    # ---------------------------------------------------------
+    # BẢN ĐỒ NHIỆT TOÀN THỊ TRƯỜNG (MARKET HEATMAP - VIETSTOCK STYLE)
+    # ---------------------------------------------------------
+    st.markdown("---")
+    st.subheader("🗺️ Bản Đồ Nhiệt Thị Trường (Market Heatmap)")
+    st.caption("Trực quan hóa quy mô dòng tiền và phân hóa ngành: Kích thước khối theo thanh khoản, màu sắc theo quy ước chuẩn TTCK Việt Nam.")
+
+    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([1.2, 1.4, 1.2, 1.2])
+    with tb_col1:
+        ex_choice = st.selectbox(
+            "Sàn giao dịch:",
+            ["Tất cả sàn", "HOSE", "VN30", "HNX", "UPCOM", "Watchlist"],
+            index=0,
+            key="hm_ex_filter",
+        )
+    with tb_col2:
+        sec_options = [
+            "Tất cả ngành",
+            "Tài chính",
+            "Bất động sản",
+            "Nguyên vật liệu",
+            "Công nghệ thông tin",
+            "Công nghiệp",
+            "Tiêu dùng thiết yếu",
+            "Tiêu dùng không thiết yếu",
+            "Năng lượng",
+            "Tiện ích",
+        ]
+        sec_choice = st.selectbox("Nhóm ngành (VS-Sector):", sec_options, index=0, key="hm_sec_filter")
+    with tb_col3:
+        sz_choice = st.selectbox(
+            "Kích thước khối theo:",
+            ["GT giao dịch (Tỷ VNĐ)", "KL giao dịch (CP)"],
+            index=0,
+            key="hm_size_filter",
+        )
+    with tb_col4:
+        search_sym = st.text_input("🔍 Tìm mã CK:", placeholder="VD: FPT, HPG, SSI...", key="hm_search_filter").strip().upper()
+
+    size_key = "turnover" if "GT giao dịch" in sz_choice else "volume"
+    custom_wl = tuple(watchlist_db.get_ticker_list() or DEFAULT_TICKERS)
+
+    heatmap_stocks = get_cached_market_heatmap_stocks(
+        exchange_filter=ex_choice,
+        sector_filter=sec_choice,
+        custom_tickers=custom_wl,
+    )
+
+    if search_sym:
+        heatmap_stocks = [s for s in heatmap_stocks if search_sym in s.get("ticker", "")]
+
+    if heatmap_stocks:
+        stats = compute_heatmap_stats(heatmap_stocks)
+        treemap_fig = create_sector_treemap_chart(heatmap_stocks, size_by=size_key)
+        st.plotly_chart(treemap_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
+
+        # Thanh trạng thái đếm mã trần/sàn/tăng/giảm chuẩn Vietstock
+        st.markdown(f"""
+        <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: flex-start; padding: 10px 16px; background: rgba(148, 163, 184, 0.08); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; font-size: 13px; font-weight: 700; margin-top: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 13px; height: 13px; background: #9333ea; border-radius: 3px;"></span> Tăng trần: <span style="color: #9333ea; font-size: 14px;">{stats['ceil']}</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 13px; height: 13px; background: #16a34a; border-radius: 3px;"></span> Tăng giá: <span style="color: #16a34a; font-size: 14px;">{stats['up']}</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 13px; height: 13px; background: #eab308; border-radius: 3px;"></span> Đứng giá: <span style="color: #ca8a04; font-size: 14px;">{stats['ref']}</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 13px; height: 13px; background: #dc2626; border-radius: 3px;"></span> Giảm giá: <span style="color: #dc2626; font-size: 14px;">{stats['down']}</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="display: inline-block; width: 13px; height: 13px; background: #0284c7; border-radius: 3px;"></span> Giảm sàn: <span style="color: #0284c7; font-size: 14px;">{stats['floor']}</span></div>
+            <div style="margin-left: auto; color: #64748b; font-size: 12px; font-weight: 500;">Đang lọc: <b>{stats['total']} mã</b></div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Không tìm thấy mã cổ phiếu nào phù hợp với bộ lọc hiện tại.")
 
     st.markdown("---")
 

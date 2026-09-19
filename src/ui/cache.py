@@ -195,3 +195,129 @@ def get_cached_technical_alerts(tickers_tuple: Tuple[str, ...]) -> List[Dict[str
     return alerts
 
 
+VIETSTOCK_SECTOR_STOCKS_MAP = {
+    "Tài chính": [
+        "VPB", "HDB", "TCB", "CTG", "BID", "VCB", "SHB", "ACB", "STB", "MBB",
+        "SSB", "LPB", "TPB", "MSB", "VIB", "OCB", "SSI", "VND", "VCI", "VIX",
+        "HCM", "ORS", "BSI", "FTS", "MBS", "SHS"
+    ],
+    "Bất động sản": [
+        "VIC", "VHM", "VRE", "NVL", "PDR", "DIG", "DXG", "KDH", "NLG", "CEO",
+        "VPI", "KBC", "BCM", "IDC", "DXS"
+    ],
+    "Nguyên vật liệu": [
+        "HPG", "HSG", "NKG", "DGC", "DCM", "DPM", "GVR"
+    ],
+    "Công nghệ thông tin": [
+        "FPT", "CTR", "CMG", "ELC"
+    ],
+    "Công nghiệp": [
+        "VCG", "CTD", "CII", "HHV", "VJC", "HVN", "GEX", "HAH", "VSC"
+    ],
+    "Tiêu dùng thiết yếu": [
+        "MSN", "MCH", "VNM", "SAB", "DBC", "BAF", "VHC", "ANV"
+    ],
+    "Tiêu dùng không thiết yếu": [
+        "PNJ", "MWG", "FRT", "DGW", "HUT"
+    ],
+    "Năng lượng": [
+        "BSR", "PVD", "PVS", "PLX", "PVT", "GAS"
+    ],
+    "Tiện ích": [
+        "POW", "REE", "GEG", "VSH", "NT2", "BWE"
+    ],
+}
+
+VN30_TICKERS = [
+    "ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG",
+    "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SHB", "SSB", "SSI", "STB",
+    "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
+]
+
+HNX_TICKERS = {"SHS", "MBS", "CEO", "PVS", "IDC", "HUT", "BSI"}
+UPCOM_TICKERS = {"BSR", "MCH"}
+
+
+def compute_heatmap_stats(stocks: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Đếm số mã tăng trần, tăng giá, đứng giá, giảm giá, giảm sàn"""
+    ceil_cnt = 0
+    up_cnt = 0
+    ref_cnt = 0
+    down_cnt = 0
+    floor_cnt = 0
+    for s in stocks:
+        chg = s.get("change", 0.0)
+        if chg >= 6.8:
+            ceil_cnt += 1
+        elif chg > 0.05:
+            up_cnt += 1
+        elif -0.05 <= chg <= 0.05:
+            ref_cnt += 1
+        elif chg <= -6.8:
+            floor_cnt += 1
+        else:
+            down_cnt += 1
+    return {
+        "ceil": ceil_cnt,
+        "up": up_cnt,
+        "ref": ref_cnt,
+        "down": down_cnt,
+        "floor": floor_cnt,
+        "total": len(stocks),
+    }
+
+
+@st.cache_data(ttl=60)
+def get_cached_market_heatmap_stocks(
+    exchange_filter: str = "Tất cả sàn",
+    sector_filter: str = "Tất cả ngành",
+    custom_tickers: Tuple[str, ...] = (),
+) -> List[Dict[str, Any]]:
+    """
+    Lấy danh sách dữ liệu cổ phiếu thị trường phân chia theo 9 nhóm ngành chuẩn Vietstock (lưu đệm 60s).
+    """
+    ticker_to_sector = {}
+    for sec, syms in VIETSTOCK_SECTOR_STOCKS_MAP.items():
+        for s in syms:
+            ticker_to_sector[s] = sec
+
+    # Lọc theo ngành
+    if sector_filter != "Tất cả ngành" and sector_filter in VIETSTOCK_SECTOR_STOCKS_MAP:
+        candidate_syms = list(VIETSTOCK_SECTOR_STOCKS_MAP[sector_filter])
+    else:
+        all_syms = []
+        for syms in VIETSTOCK_SECTOR_STOCKS_MAP.values():
+            all_syms.extend(syms)
+        candidate_syms = list(dict.fromkeys(all_syms))
+
+    # Lọc theo sàn / danh mục
+    if exchange_filter == "VN30":
+        target_tickers = [s for s in candidate_syms if s in VN30_TICKERS]
+    elif exchange_filter == "HNX":
+        target_tickers = [s for s in candidate_syms if s in HNX_TICKERS]
+    elif exchange_filter == "UPCOM":
+        target_tickers = [s for s in candidate_syms if s in UPCOM_TICKERS]
+    elif exchange_filter == "HOSE":
+        target_tickers = [s for s in candidate_syms if s not in HNX_TICKERS and s not in UPCOM_TICKERS]
+    elif exchange_filter == "Watchlist" and custom_tickers:
+        target_tickers = [s for s in candidate_syms if s in custom_tickers]
+    else:
+        target_tickers = candidate_syms
+
+    quotes = stock_engine.get_quotes_batch(target_tickers)
+    items = []
+    for q in quotes:
+        sym = q.get("ticker", "")
+        sec = ticker_to_sector.get(sym, "Khác")
+        items.append({
+            "ticker": sym,
+            "sector": sec,
+            "price": q.get("price", 0.0),
+            "change": q.get("pct_change", 0.0),
+            "volume": q.get("volume", 0),
+        })
+    return items
+
+
+
+

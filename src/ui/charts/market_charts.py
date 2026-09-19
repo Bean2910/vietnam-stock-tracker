@@ -68,17 +68,41 @@ def create_market_breadth_card(breadth: Dict[str, Any], vnindex_change: float = 
     return html
 
 
-def create_sector_treemap_chart(sector_stocks: List[Dict[str, Any]]) -> go.Figure:
+def create_sector_treemap_chart(
+    sector_stocks: List[Dict[str, Any]],
+    size_by: str = "turnover",
+) -> go.Figure:
     """
-    Tạo Ma Trận Tương Quan Ngành (Sector Heatmap) dạng Treemap:
-    - Kích thước khối: Tỷ trọng thanh khoản / Vốn hóa
-    - Màu sắc: % Tăng giảm giá (-7% Đỏ đến 0% Xám đến +7% Xanh lục)
+    Tạo Bản Đồ Nhiệt Thị Trường (Market Heatmap dạng Treemap):
+    - Kích thước khối: Tùy chọn theo Giá trị giao dịch (Tỷ VNĐ) hoặc Khối lượng (CP)
+    - Màu sắc: % Tăng giảm giá theo quy ước TTCK Việt Nam (Sàn -7% Xanh lơ, Đỏ, Tham chiếu 0%, Xanh lục, Trần +7% Tím)
     """
+    if not sector_stocks:
+        fig = go.Figure()
+        fig.update_layout(title="Chưa có dữ liệu thị trường để hiển thị Heatmap")
+        return fig
+
+    # Tiêu đề & đơn vị đo lường kích thước khối
+    is_turnover = (size_by == "turnover")
+    size_label = "Giá trị GD (Tỷ VNĐ)" if is_turnover else "Khối lượng (CP)"
+
+    def _calc_stock_val(s: Dict[str, Any]) -> float:
+        vol = float(s.get("volume", 0) or 0)
+        p = float(s.get("price", 0.0) or 0.0)
+        if is_turnover:
+            turnover_bil = (p * 1000.0 * vol) / 1_000_000_000.0
+            return max(round(turnover_bil, 2), 0.5)
+        return max(vol, 1000.0)
+
+    total_val = sum([_calc_stock_val(s) for s in sector_stocks])
+
+    ids = ["root"]
     labels = ["Toàn Thị Trường"]
     parents = [""]
-    values = [sum([s.get("volume", 1000000) for s in sector_stocks])]
-    colors = [0.0]
-    hover_texts = ["Toàn bộ thị trường chứng khoán"]
+    values = [total_val]
+    colors = ["#e2e8f0"]
+    text_colors = ["#0f172a"]
+    hover_texts = [f"<b>Toàn Thị Trường</b><br>Tổng quy mô: {total_val:,.1f} {'Tỷ VNĐ' if is_turnover else 'CP'}"]
 
     # Nhóm theo ngành
     sectors_map: Dict[str, List[Dict[str, Any]]] = {}
@@ -89,60 +113,85 @@ def create_sector_treemap_chart(sector_stocks: List[Dict[str, Any]]) -> go.Figur
         sectors_map[sec].append(s)
 
     for sec, stocks in sectors_map.items():
-        sec_vol = sum([s.get("volume", 1000000) for s in stocks])
+        sec_id = f"sec_{sec}"
+        sec_total_val = sum([_calc_stock_val(s) for s in stocks])
         sec_avg_chg = float(np.mean([s.get("change", 0.0) for s in stocks]))
-        labels.append(sec)
-        parents.append("Toàn Thị Trường")
-        values.append(sec_vol)
-        colors.append(sec_avg_chg)
-        hover_texts.append(f"<b>Ngành:</b> {sec}<br><b>Biến động TB:</b> {sec_avg_chg:+.2f}%<br><b>Tổng KL:</b> {sec_vol:,} CP")
+        
+        ids.append(sec_id)
+        labels.append(f"<b>{sec}</b>")
+        parents.append("root")
+        values.append(sec_total_val)
+        colors.append("#f1f5f9")
+        text_colors.append("#0f172a")
+        hover_texts.append(
+            f"<b>Ngành: {sec}</b><br>"
+            f"Số mã: {len(stocks)} CP<br>"
+            f"Biến động TB: <b>{sec_avg_chg:+.2f}%</b><br>"
+            f"Tổng thanh khoản: {sec_total_val:,.1f} {'Tỷ VNĐ' if is_turnover else 'CP'}"
+        )
 
         for s in stocks:
             sym = s.get("ticker", "")
             p_chg = s.get("change", 0.0)
-            vol = s.get("volume", 500000)
+            vol = s.get("volume", 0)
             price = s.get("price", 0.0)
-            labels.append(f"{sym}<br>{p_chg:+.1f}%")
-            parents.append(sec)
-            values.append(vol)
-            colors.append(p_chg)
-            hover_texts.append(f"<b>Mã:</b> {sym} ({sec})<br><b>Giá:</b> {price:,.2f}<br><b>Thay đổi:</b> {p_chg:+.2f}%<br><b>Khối lượng:</b> {vol:,} CP")
+            val = _calc_stock_val(s)
+            t_bil = (price * 1000.0 * vol) / 1_000_000_000.0
+
+            # Xác định màu sắc theo quy ước chuẩn sàn Vietstock
+            if p_chg >= 6.8:
+                tile_color = "#9333ea"  # Tím trần
+                txt_color = "#ffffff"
+            elif p_chg > 0.05:
+                tile_color = "#16a34a"  # Xanh lá tăng
+                txt_color = "#ffffff"
+            elif -0.05 <= p_chg <= 0.05:
+                tile_color = "#eab308"  # Vàng tham chiếu (Đứng giá)
+                txt_color = "#0f172a"   # Chữ đen trên nền vàng
+            elif p_chg <= -6.8:
+                tile_color = "#0284c7"  # Xanh lơ sàn
+                txt_color = "#ffffff"
+            else:
+                tile_color = "#dc2626"  # Đỏ giảm
+                txt_color = "#ffffff"
+
+            ids.append(f"stock_{sym}_{sec}")
+            labels.append(f"<b>{sym}</b><br>{p_chg:+.2f}%")
+            parents.append(sec_id)
+            values.append(val)
+            colors.append(tile_color)
+            text_colors.append(txt_color)
+            hover_texts.append(
+                f"<b>{sym}</b> ({sec})<br>"
+                f"Giá khớp: <b>{price:,.2f}</b> ({price * 1000:,.0f} đ)<br>"
+                f"Biến động: <b>{p_chg:+.2f}%</b><br>"
+                f"Khối lượng: <b>{vol:,} CP</b><br>"
+                f"Thanh khoản: <b>{t_bil:,.1f} Tỷ VNĐ</b>"
+            )
 
     fig = go.Figure(
         go.Treemap(
+            ids=ids,
             labels=labels,
             parents=parents,
             values=values,
             marker=dict(
                 colors=colors,
-                colorscale=[
-                    [0.0, "#dc2626"],   # -7% Đỏ sàn
-                    [0.35, "#7f1d1d"],
-                    [0.5, "#334155"],   # 0% Tham chiếu Xám
-                    [0.65, "#065f46"],
-                    [1.0, "#10b981"],   # +7% Xanh trần
-                ],
-                cmid=0.0,
-                cmin=-7.0,
-                cmax=7.0,
-                colorbar=dict(title="% Thay Đổi", ticksuffix="%"),
+                line=dict(width=2, color="#ffffff"),
             ),
             hoverinfo="text",
             hovertext=hover_texts,
             branchvalues="total",
             textposition="middle center",
-            textfont=dict(size=13, color="#ffffff"),
+            textfont=dict(size=14, color=text_colors, family="Segoe UI, sans-serif"),
+            pathbar=dict(visible=False),
+            tiling=dict(packing="squarify", pad=3),
         )
     )
 
     fig.update_layout(
-        title=dict(
-            text="🗺️ Ma Trận Tương Quan Ngành & Dòng Tiền (Sector Treemap Heatmap)",
-            x=0.01,
-            y=0.98,
-        ),
-        height=520,
-        margin=dict(l=10, r=10, t=50, b=10),
+        height=580,
+        margin=dict(l=5, r=5, t=10, b=10),
     )
     return fig
 

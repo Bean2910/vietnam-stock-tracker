@@ -13,6 +13,7 @@ from src.database.tinydb_manager import watchlist_db
 from src.data.stock_data import stock_engine
 from src.ui.cache import get_cached_quotes_map, get_stock_technical_summary
 from src.ui.components import create_sector_treemap_chart
+from src.ui.styles import PLOTLY_CONFIG
 
 
 def render_watchlist_page():
@@ -208,6 +209,6 @@ def render_watchlist_page():
 
         if sector_items:
             treemap_fig = create_sector_treemap_chart(sector_items)
-            st.plotly_chart(treemap_fig, width="stretch", on_select="ignore")
+            st.plotly_chart(treemap_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
         else:
             st.info("Chưa đủ dữ liệu để vẽ bản đồ nhiệt ngành.")

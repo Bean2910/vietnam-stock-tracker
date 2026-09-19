@@ -47,11 +47,12 @@ class StockDataEngine:
                     item = data[0]
                     curr_price = float(item.get("lastPrice") or item.get("r") or 0.0)
                     ref_price = float(item.get("r") or curr_price)
-                    change = float(item.get("ot") or (curr_price - ref_price))
-                    try:
-                        pct_change = float(item.get("changePc") or 0.0)
-                    except Exception:
-                        pct_change = (change / ref_price * 100) if ref_price > 0 else 0.0
+                    if curr_price > 0 and ref_price > 0:
+                        change = round(curr_price - ref_price, 2)
+                        pct_change = round((change / ref_price) * 100.0, 2)
+                    else:
+                        change = 0.0
+                        pct_change = 0.0
 
                     vol = int(item.get("lot") or 0) * 10
                     high_p = float(item.get("highPrice") or curr_price)
@@ -97,11 +98,12 @@ class StockDataEngine:
                         continue
                     curr_price = float(item.get("lastPrice") or item.get("r") or 0.0)
                     ref_price = float(item.get("r") or curr_price)
-                    change = float(item.get("ot") or (curr_price - ref_price))
-                    try:
-                        pct_change = float(item.get("changePc") or 0.0)
-                    except Exception:
-                        pct_change = (change / ref_price * 100) if ref_price > 0 else 0.0
+                    if curr_price > 0 and ref_price > 0:
+                        change = round(curr_price - ref_price, 2)
+                        pct_change = round((change / ref_price) * 100.0, 2)
+                    else:
+                        change = 0.0
+                        pct_change = 0.0
 
                     quotes_map[sym] = {
                         "ticker": sym,
