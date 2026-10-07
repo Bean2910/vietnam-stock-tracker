@@ -958,13 +958,14 @@ def render_lightweight_tv_chart(
 
     # Tính toán chiều cao các pane
     main_h = height
+    vol_h = 125 if show_vol else 0
     rsi_h = 130 if show_rsi else 0
     macd_h = 130 if show_macd else 0
     stoch_h = 130 if show_stoch else 0
     mfi_h = 130 if show_mfi else 0
     atr_h = 120 if show_atr else 0
     obv_h = 120 if show_obv else 0
-    total_h = main_h + rsi_h + macd_h + stoch_h + mfi_h + atr_h + obv_h
+    total_h = main_h + vol_h + rsi_h + macd_h + stoch_h + mfi_h + atr_h + obv_h
 
     # Đọc thư viện JS cục bộ đã lưu đệm hoặc dùng CDN
     js_lib_path = Path(__file__).parent.parent / "assets" / "lightweight-charts.js"
@@ -1009,6 +1010,7 @@ def render_lightweight_tv_chart(
 
     legend_html = "".join(legend_badges)
 
+    vol_pane_html = f'<div id="tv_vol_container" style="width:100%;height:{vol_h}px;border-top:1px solid #334155;position:relative;"><div style="position:absolute;top:6px;left:14px;color:#10b981;font-size:12px;font-weight:600;z-index:10;">Khối Lượng Giao Dịch (Volume) · Kèm VOL SMA20</div></div>' if show_vol else ""
     rsi_pane_html = f'<div id="tv_rsi_container" style="width:100%;height:{rsi_h}px;border-top:1px solid #334155;position:relative;"><div style="position:absolute;top:6px;left:14px;color:#8b5cf6;font-size:12px;font-weight:600;z-index:10;">RSI (14) · Quá mua 70 / Quá bán 30</div></div>' if show_rsi else ""
     macd_pane_html = f'<div id="tv_macd_container" style="width:100%;height:{macd_h}px;border-top:1px solid #334155;position:relative;"><div style="position:absolute;top:6px;left:14px;color:#38bdf8;font-size:12px;font-weight:600;z-index:10;">MACD (12, 26, 9) · Histogram & Signal</div></div>' if show_macd else ""
     stoch_pane_html = f'<div id="tv_stoch_container" style="width:100%;height:{stoch_h}px;border-top:1px solid #334155;position:relative;"><div style="position:absolute;top:6px;left:14px;color:#06b6d4;font-size:12px;font-weight:600;z-index:10;">Stochastic (14, 3) · %K / %D · [20 - 80]</div></div>' if show_stoch else ""
@@ -1093,6 +1095,7 @@ def render_lightweight_tv_chart(
       </div>
       <div id="tv_main_chart" style="width:100%;height:100%;"></div>
     </div>
+    {vol_pane_html}
     {rsi_pane_html}
     {macd_pane_html}
     {stoch_pane_html}
@@ -1113,7 +1116,7 @@ def render_lightweight_tv_chart(
       horzLines: {{ color: 'rgba(51, 65, 85, 0.4)' }},
     }};
 
-    // ================= 1. BIỂU ĐỒ CHÍNH (NẾN & OVERLAYS) =================
+    // ================= 1. BIỂU ĐỒ CHÍNH (NẾN & OVERLAYS - KHÔNG BỊ TRÙNG VOLUME) =================
     const mainContainer = document.getElementById('tv_main_chart');
     const mainChart = LightweightCharts.createChart(mainContainer, {{
       width: mainContainer.clientWidth,
@@ -1124,7 +1127,7 @@ def render_lightweight_tv_chart(
       rightPriceScale: {{
         borderColor: '#334155',
         autoScale: true,
-        scaleMargins: {{ top: 0.10, bottom: {'0.22' if show_vol else '0.10'} }},
+        scaleMargins: {{ top: 0.08, bottom: 0.08 }},
       }},
       timeScale: {{
         borderColor: '#334155',
@@ -1158,10 +1161,6 @@ def render_lightweight_tv_chart(
     // Đường giá tham chiếu
     {'candleSeries.createPriceLine({ price: ' + str(round(ref_price, 2)) + ', color: "#facc15", lineWidth: 1.5, lineStyle: 2, title: "TC: ' + str(round(ref_price, 2)) + '" });' if (show_ref_line and ref_price and ref_price > 0) else ''}
 
-    // Cột Khối lượng Volume & Đường Vol SMA20
-    {'const volSeries = mainChart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "", scaleMargins: { top: 0.80, bottom: 0 } }); volSeries.setData(' + json.dumps(volumes) + ');' if show_vol and volumes else ''}
-    {'const volMaSeries = mainChart.addLineSeries({ color: "rgba(245, 158, 11, 0.8)", lineWidth: 1.2, lineStyle: 2, priceFormat: { type: "volume" }, priceScaleId: "", scaleMargins: { top: 0.80, bottom: 0 } }); volMaSeries.setData(' + json.dumps(vol_ma20) + ');' if show_vol and vol_ma20 else ''}
-
     // Overlays: SMA
     {'const s10 = mainChart.addLineSeries({ color: "#eab308", lineWidth: 1.5, priceLineVisible: false }); s10.setData(' + json.dumps(sma10) + ');' if show_sma_short and sma10 else ''}
     {'const s20 = mainChart.addLineSeries({ color: "#f97316", lineWidth: 2, priceLineVisible: false }); s20.setData(' + json.dumps(sma20) + ');' if show_sma_short and sma20 else ''}
@@ -1193,6 +1192,9 @@ def render_lightweight_tv_chart(
     {'const vwapS = mainChart.addLineSeries({ color: "#eab308", lineWidth: 2, priceLineVisible: false }); vwapS.setData(' + json.dumps(vwap_pts) + ');' if show_vwap and vwap_pts else ''}
 
     const allCharts = [mainChart];
+
+    // ================= 2. KHUNG PHỤ: VOLUME & VOL SMA20 (TÁCH BIỆT HOÀN TOÀN DƯỚI NẾN) =================
+    {'const volCont = document.getElementById("tv_vol_container"); const volChart = LightweightCharts.createChart(volCont, { width: volCont.clientWidth, height: ' + str(vol_h) + ', layout: commonLayout, grid: commonGrid, crosshair: { mode: LightweightCharts.CrosshairMode.Normal }, rightPriceScale: { borderColor: "#334155", autoScale: true, scaleMargins: { top: 0.15, bottom: 0.02 } }, timeScale: { borderColor: "#334155", visible: false } }); const volSeries = volChart.addHistogramSeries({ priceFormat: { type: "volume" }, priceLineVisible: false }); volSeries.setData(' + json.dumps(volumes) + '); const volMaSeries = volChart.addLineSeries({ color: "rgba(245, 158, 11, 0.85)", lineWidth: 1.4, lineStyle: 2, priceFormat: { type: "volume" }, priceLineVisible: false }); volMaSeries.setData(' + json.dumps(vol_ma20) + '); allCharts.push(volChart);' if show_vol and volumes else ''}
 
     // ================= 2. KHUNG PHỤ: RSI (14) =================
     {'const rsiCont = document.getElementById("tv_rsi_container"); const rsiChart = LightweightCharts.createChart(rsiCont, { width: rsiCont.clientWidth, height: ' + str(rsi_h) + ', layout: commonLayout, grid: commonGrid, rightPriceScale: { borderColor: "#334155", autoScale: true, scaleMargins: { top: 0.15, bottom: 0.15 } }, timeScale: { borderColor: "#334155", visible: false } }); const rsiLine = rsiChart.addLineSeries({ color: "#8b5cf6", lineWidth: 2, priceLineVisible: false }); rsiLine.setData(' + json.dumps(rsi_pts) + '); rsiLine.createPriceLine({ price: 70, color: "rgba(239, 68, 68, 0.7)", lineStyle: 2, title: "70 Quá mua" }); rsiLine.createPriceLine({ price: 30, color: "rgba(16, 185, 129, 0.7)", lineStyle: 2, title: "30 Quá bán" }); rsiLine.createPriceLine({ price: 50, color: "rgba(148, 163, 184, 0.4)", lineStyle: 3, title: "50" }); allCharts.push(rsiChart);' if show_rsi else ''}
