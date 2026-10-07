@@ -313,6 +313,29 @@ def render_detail_analysis_page():
                 help="Biểu đồ TradingView nội bộ sử dụng chính công nghệ đồ họa Canvas của TradingView chạy trực tiếp trên máy bạn với dữ liệu VPS thật, tự động co giãn nến cao to và kéo thả trục giá Y tự do.",
             )
 
+            # Khởi tạo giá trị mặc định cho chỉ báo trong session_state nếu chưa có
+            default_indicators = {
+                f"ind_sma_s_{active_sym}": True,
+                f"ind_sma_m_{active_sym}": True,
+                f"ind_sma_l_{active_sym}": True,
+                f"ind_ema_{active_sym}": False,
+                f"ind_bb_{active_sym}": True,
+                f"ind_ichi_{active_sym}": False,
+                f"ind_sar_{active_sym}": False,
+                f"ind_vwap_{active_sym}": False,
+                f"ind_ref_{active_sym}": True,
+                f"ind_vol_{active_sym}": True,
+                f"ind_rsi_{active_sym}": True,
+                f"ind_macd_{active_sym}": True,
+                f"ind_stoch_{active_sym}": False,
+                f"ind_mfi_{active_sym}": False,
+                f"ind_atr_{active_sym}": False,
+                f"ind_obv_{active_sym}": False,
+            }
+            for ind_k, ind_v in default_indicators.items():
+                if ind_k not in st.session_state:
+                    st.session_state[ind_k] = ind_v
+
             # 🎛️ BỘ TÙY CHỌN BẬT / TẮT 15+ CHỈ BÁO KỸ THUẬT (DÙNG CHUNG CHO CẢ TRADINGVIEW CANVAS & PLOTLY)
             with st.expander("🎛️ **BỘ TÙY CHỌN BẬT / TẮT 15+ CHỈ BÁO KỸ THUẬT (Tích chọn để hiển thị ngay trên biểu đồ)**", expanded=True):
                 st.caption("⚡ **Cấu hình nhanh bộ chỉ báo:**")
@@ -416,34 +439,34 @@ def render_detail_analysis_page():
                 with col_ov:
                     st.markdown("###### 📈 **Chỉ báo trên nến giá (Price Overlays)**")
                     o1, o2, o3 = st.columns(3)
-                    s_sma_short = o1.checkbox("SMA (10, 20)", value=True, help="SMA10 (vàng), SMA20 (cam) - Xu hướng ngắn hạn", key=f"ind_sma_s_{active_sym}")
-                    s_sma_med = o2.checkbox("SMA (50, 100)", value=True, help="SMA50 (xanh dương), SMA100 (tím) - Xu hướng trung hạn", key=f"ind_sma_m_{active_sym}")
-                    s_sma200 = o3.checkbox("SMA 200 (Dài)", value=True, help="SMA200 (hồng) - Đại xu hướng dài hạn", key=f"ind_sma_l_{active_sym}")
+                    s_sma_short = o1.checkbox("SMA (10, 20)", help="SMA10 (vàng), SMA20 (cam) - Xu hướng ngắn hạn", key=f"ind_sma_s_{active_sym}")
+                    s_sma_med = o2.checkbox("SMA (50, 100)", help="SMA50 (xanh dương), SMA100 (tím) - Xu hướng trung hạn", key=f"ind_sma_m_{active_sym}")
+                    s_sma200 = o3.checkbox("SMA 200 (Dài)", help="SMA200 (hồng) - Đại xu hướng dài hạn", key=f"ind_sma_l_{active_sym}")
 
                     o4, o5, o6 = st.columns(3)
-                    s_ema = o4.checkbox("EMA (9, 21, 50, 200)", value=False, help="EMA phản ứng giá nhạy bén hơn SMA", key=f"ind_ema_{active_sym}")
-                    s_bb = o5.checkbox("Bollinger Bands", value=True, help="Dải biến động 20 kỳ, 2 độ lệch chuẩn", key=f"ind_bb_{active_sym}")
-                    s_ichimoku = o6.checkbox("Mây Ichimoku", value=False, help="Tenkan, Kijun & Mây Kumo Span A/B", key=f"ind_ichi_{active_sym}")
+                    s_ema = o4.checkbox("EMA (9, 21, 50, 200)", help="EMA phản ứng giá nhạy bén hơn SMA", key=f"ind_ema_{active_sym}")
+                    s_bb = o5.checkbox("Bollinger Bands", help="Dải biến động 20 kỳ, 2 độ lệch chuẩn", key=f"ind_bb_{active_sym}")
+                    s_ichimoku = o6.checkbox("Mây Ichimoku", help="Tenkan, Kijun & Mây Kumo Span A/B", key=f"ind_ichi_{active_sym}")
 
                     o7, o8, o9 = st.columns(3)
-                    s_sar = o7.checkbox("Parabolic SAR", value=False, help="Điểm chấm tím báo đảo chiều & Trailing Stop", key=f"ind_sar_{active_sym}")
-                    s_vwap = o8.checkbox("VWAP", value=False, help="Giá bình quân gia quyền khối lượng", key=f"ind_vwap_{active_sym}")
-                    s_ref = o9.checkbox("Giá Tham Chiếu", value=True, help="Đường vàng chấm ngang giá tham chiếu", key=f"ind_ref_{active_sym}")
+                    s_sar = o7.checkbox("Parabolic SAR", help="Điểm chấm tím báo đảo chiều & Trailing Stop", key=f"ind_sar_{active_sym}")
+                    s_vwap = o8.checkbox("VWAP", help="Giá bình quân gia quyền khối lượng", key=f"ind_vwap_{active_sym}")
+                    s_ref = o9.checkbox("Giá Tham Chiếu", help="Đường vàng chấm ngang giá tham chiếu", key=f"ind_ref_{active_sym}")
 
                 with col_sub:
                     st.markdown("###### 📊 **Chỉ báo Động lượng & Dao động (Sub-panels bên dưới)**")
                     u1, u2, u3 = st.columns(3)
-                    s_vol = u1.checkbox("Khối lượng (Volume)", value=True, help="Cột Volume + Đường Vol SMA20", key=f"ind_vol_{active_sym}")
-                    s_rsi = u2.checkbox("Chỉ số RSI (14)", value=True, help="Sức mạnh tương đối kèm vùng 70/30/50", key=f"ind_rsi_{active_sym}")
-                    s_macd = u3.checkbox("Chỉ báo MACD", value=True, help="MACD (12, 26, 9), Signal & Histogram", key=f"ind_macd_{active_sym}")
+                    s_vol = u1.checkbox("Khối lượng (Volume)", help="Cột Volume + Đường Vol SMA20", key=f"ind_vol_{active_sym}")
+                    s_rsi = u2.checkbox("Chỉ số RSI (14)", help="Sức mạnh tương đối kèm vùng 70/30/50", key=f"ind_rsi_{active_sym}")
+                    s_macd = u3.checkbox("Chỉ báo MACD", help="MACD (12, 26, 9), Signal & Histogram", key=f"ind_macd_{active_sym}")
 
                     u4, u5, u6 = st.columns(3)
-                    s_stoch = u4.checkbox("Stochastic (14, 3)", value=False, help="Dao động ngẫu nhiên %K, %D (80/20)", key=f"ind_stoch_{active_sym}")
-                    s_mfi = u5.checkbox("Dòng tiền MFI (14)", value=False, help="Money Flow Index - RSI khối lượng (80/20)", key=f"ind_mfi_{active_sym}")
-                    s_atr = u6.checkbox("Biến động ATR (14)", value=False, help="Average True Range - Đo độ biến động giá", key=f"ind_atr_{active_sym}")
+                    s_stoch = u4.checkbox("Stochastic (14, 3)", help="Dao động ngẫu nhiên %K, %D (80/20)", key=f"ind_stoch_{active_sym}")
+                    s_mfi = u5.checkbox("Dòng tiền MFI (14)", help="Money Flow Index - RSI khối lượng (80/20)", key=f"ind_mfi_{active_sym}")
+                    s_atr = u6.checkbox("Biến động ATR (14)", help="Average True Range - Đo độ biến động giá", key=f"ind_atr_{active_sym}")
 
                     u7, _, _ = st.columns(3)
-                    s_obv = u7.checkbox("Khối lượng Cân bằng OBV", value=False, help="On-Balance Volume - Đo dòng tiền gom/xả", key=f"ind_obv_{active_sym}")
+                    s_obv = u7.checkbox("Khối lượng Cân bằng OBV", help="On-Balance Volume - Đo dòng tiền gom/xả", key=f"ind_obv_{active_sym}")
 
             ref_p = quote.get("ref_price") or quote.get("price")
 

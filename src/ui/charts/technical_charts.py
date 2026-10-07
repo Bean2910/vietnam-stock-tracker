@@ -781,8 +781,7 @@ def render_tradingview_widget(ticker: str, height: int = 620):
     if hasattr(st, "iframe"):
         st.iframe(tv_html, height=height + 20, width="stretch")
     else:
-        import streamlit.components.v1 as components
-        components.html(tv_html, height=height + 20)
+        st.html(tv_html)
 
 
 def render_lightweight_tv_chart(
@@ -1268,8 +1267,7 @@ def render_lightweight_tv_chart(
     if hasattr(st, "iframe"):
         st.iframe(lw_html, height=total_h + 20, width="stretch")
     else:
-        import streamlit.components.v1 as components
-        components.html(lw_html, height=total_h + 20)
+        st.html(lw_html)
 
 
 
