@@ -8,6 +8,55 @@ import numpy as np
 from typing import Dict, Any
 
 
+def calculate_parabolic_sar(df: pd.DataFrame, af_start: float = 0.02, af_step: float = 0.02, af_max: float = 0.2) -> pd.Series:
+    """Tính chỉ báo Parabolic SAR (Stop and Reverse) xác định điểm đảo chiều xu hướng."""
+    high = df["high"].values
+    low = df["low"].values
+    n = len(df)
+    if n < 2:
+        return pd.Series(df["close"].values, index=df.index)
+    sar = np.zeros(n)
+    trend = 1 if df["close"].iloc[1] >= df["close"].iloc[0] else -1
+    ep = high[0] if trend == 1 else low[0]
+    sar[0] = low[0] if trend == 1 else high[0]
+    af = af_start
+
+    for i in range(1, n):
+        prev_sar = sar[i - 1]
+        if trend == 1:
+            cur_sar = prev_sar + af * (ep - prev_sar)
+            if i >= 2:
+                cur_sar = min(cur_sar, low[i - 1], low[i - 2])
+            else:
+                cur_sar = min(cur_sar, low[i - 1])
+            if low[i] < cur_sar:
+                trend = -1
+                cur_sar = ep
+                ep = low[i]
+                af = af_start
+            else:
+                if high[i] > ep:
+                    ep = high[i]
+                    af = min(af + af_step, af_max)
+        else:
+            cur_sar = prev_sar - af * (prev_sar - ep)
+            if i >= 2:
+                cur_sar = max(cur_sar, high[i - 1], high[i - 2])
+            else:
+                cur_sar = max(cur_sar, high[i - 1])
+            if high[i] > cur_sar:
+                trend = 1
+                cur_sar = ep
+                ep = high[i]
+                af = af_start
+            else:
+                if low[i] < ep:
+                    ep = low[i]
+                    af = min(af + af_step, af_max)
+        sar[i] = cur_sar
+    return pd.Series(sar, index=df.index)
+
+
 def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
     Tính toán bộ chỉ báo kỹ thuật toàn diện cho DataFrame nến (OHLCV).
@@ -22,12 +71,19 @@ def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
     low = data["low"]
     volume = data["volume"]
 
-    # 1. Đường Trung bình Động (Moving Averages)
+    # 1. Đường Trung bình Động SMA & EMA
+    data["SMA10"] = close.rolling(window=10, min_periods=1).mean()
     data["SMA20"] = close.rolling(window=20, min_periods=1).mean()
     data["SMA50"] = close.rolling(window=50, min_periods=1).mean()
+    data["SMA100"] = close.rolling(window=100, min_periods=1).mean()
     data["SMA200"] = close.rolling(window=200, min_periods=1).mean()
+
+    data["EMA9"] = close.ewm(span=9, adjust=False).mean()
     data["EMA12"] = close.ewm(span=12, adjust=False).mean()
+    data["EMA21"] = close.ewm(span=21, adjust=False).mean()
     data["EMA26"] = close.ewm(span=26, adjust=False).mean()
+    data["EMA50"] = close.ewm(span=50, adjust=False).mean()
+    data["EMA200"] = close.ewm(span=200, adjust=False).mean()
 
     # 2. MACD (Moving Average Convergence Divergence)
     data["MACD"] = data["EMA12"] - data["EMA26"]
@@ -50,11 +106,37 @@ def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
     data["BB_Lower"] = bb_mean - (bb_std * 2)
     data["BB_Width"] = ((data["BB_Upper"] - data["BB_Lower"]) / bb_mean * 100).fillna(0)
 
-    # 5. Khối lượng Trung bình (Volume SMA20)
+    # 5. Mây Ichimoku Kinko Hyo
+    data["ICH_Tenkan"] = (high.rolling(window=9, min_periods=1).max() + low.rolling(window=9, min_periods=1).min()) / 2
+    data["ICH_Kijun"] = (high.rolling(window=26, min_periods=1).max() + low.rolling(window=26, min_periods=1).min()) / 2
+    data["ICH_SpanA"] = ((data["ICH_Tenkan"] + data["ICH_Kijun"]) / 2)
+    data["ICH_SpanB"] = (high.rolling(window=52, min_periods=1).max() + low.rolling(window=52, min_periods=1).min()) / 2
+    data["ICH_Chikou"] = close.shift(-26)
+
+    # 6. Parabolic SAR & VWAP
+    data["SAR"] = calculate_parabolic_sar(data)
+    tp = (high + low + close) / 3
+    data["VWAP"] = (tp * volume).cumsum() / volume.cumsum().replace(0, np.nan)
+
+    # 7. Khối lượng Trung bình (Volume SMA20) & OBV
     data["VOL_SMA20"] = volume.rolling(window=20, min_periods=1).mean()
     data["VOL_Ratio"] = (volume / data["VOL_SMA20"].replace(0, np.nan)).fillna(1.0)
+    direction = np.sign(close.diff()).fillna(0)
+    data["OBV"] = (direction * volume).cumsum()
 
-    # 6. ATR (Average True Range - 14) - Đo lường độ biến động
+    # 8. Stochastic Oscillator (14, 3, 3)
+    l14 = low.rolling(window=14, min_periods=1).min()
+    h14 = high.rolling(window=14, min_periods=1).max()
+    data["STOCH_K"] = (100 * (close - l14) / (h14 - l14).replace(0, np.nan)).fillna(50)
+    data["STOCH_D"] = data["STOCH_K"].rolling(window=3, min_periods=1).mean()
+
+    # 9. MFI (Money Flow Index - 14)
+    rmf = tp * volume
+    pmf = pd.Series(np.where(tp > tp.shift(1), rmf, 0), index=data.index).rolling(window=14, min_periods=1).sum()
+    nmf = pd.Series(np.where(tp < tp.shift(1), rmf, 0), index=data.index).rolling(window=14, min_periods=1).sum()
+    data["MFI14"] = (100 - (100 / (1 + pmf / nmf.replace(0, np.nan)))).fillna(50)
+
+    # 10. ATR (Average True Range - 14) - Đo lường độ biến động
     prev_close = close.shift(1)
     tr1 = high - low
     tr2 = (high - prev_close).abs()

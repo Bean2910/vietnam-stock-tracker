@@ -9,6 +9,8 @@ Tập hợp và tái xuất (re-export) các biểu đồ tài chính và widget
 from src.ui.charts import (
     create_candlestick_chart,
     create_volume_profile_chart,
+    render_tradingview_widget,
+    render_lightweight_tv_chart,
     create_forecast_chart,
     create_multi_model_comparison_chart,
     create_ml_forecast_chart,
@@ -21,6 +23,8 @@ from src.ui.charts import (
 __all__ = [
     "create_candlestick_chart",
     "create_volume_profile_chart",
+    "render_tradingview_widget",
+    "render_lightweight_tv_chart",
     "create_forecast_chart",
     "create_multi_model_comparison_chart",
     "create_ml_forecast_chart",

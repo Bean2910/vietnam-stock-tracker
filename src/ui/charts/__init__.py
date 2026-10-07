@@ -8,6 +8,8 @@ Tách nhỏ từ components.py thành các module chuyên biệt:
 from src.ui.charts.technical_charts import (
     create_candlestick_chart,
     create_volume_profile_chart,
+    render_tradingview_widget,
+    render_lightweight_tv_chart,
 )
 from src.ui.charts.forecast_charts import (
     create_forecast_chart,
@@ -24,6 +26,7 @@ from src.ui.charts.market_charts import (
 __all__ = [
     "create_candlestick_chart",
     "create_volume_profile_chart",
+    "render_tradingview_widget",
     "create_forecast_chart",
     "create_multi_model_comparison_chart",
     "create_ml_forecast_chart",

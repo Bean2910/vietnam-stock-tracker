@@ -19,6 +19,10 @@ from src.ui.cache import (
     get_cached_volume_profile,
     get_cached_vsa_patterns,
     get_cached_valuation_bands,
+    VN30_TICKERS,
+    HNX_TICKERS,
+    UPCOM_TICKERS,
+    VIETSTOCK_SECTOR_STOCKS_MAP,
 )
 from src.ui.styles import PLOTLY_CONFIG
 from src.ui.components import (
@@ -28,28 +32,214 @@ from src.ui.components import (
     create_feature_importance_chart,
     create_volume_profile_chart,
     create_valuation_bands_chart,
+    render_tradingview_widget,
+    render_lightweight_tv_chart,
 )
+
+
+VN30_LIST = [
+    "ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG",
+    "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SHB", "SSB", "SSI", "STB",
+    "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
+]
+
+HOSE_LIST = VN30_LIST + [
+    "DIG", "DXG", "KBC", "PDR", "NVL", "NLG", "DCM", "DPM", "GEX", "VSC",
+    "HAH", "PC1", "GEE", "EVF", "VDS", "CTS", "AGR", "TCM", "DPG", "HDG",
+    "BCG", "ASM", "IJC", "TDC", "HAG", "ITA", "DXS", "FRT", "DGW", "PNJ",
+    "REE", "BWE", "VSH", "NT2", "HSG", "NKG", "KDH", "VCI", "HCM", "VND",
+    "LPB", "MSB", "OCB", "EIB", "DGC", "DBC", "ANV", "VHC", "SBT", "CII"
+]
+
+HNX_LIST = [
+    "SHS", "MBS", "CEO", "PVS", "IDC", "HUT", "BSI", "VCS", "TNG",
+    "DTD", "PVC", "PVI", "LAS", "NVB", "BAB", "CAP", "IDV"
+]
+
+UPCOM_LIST = [
+    "BSR", "MCH", "VEA", "VGI", "ACV", "QNS", "OIL", "C4G", "MML",
+    "VGT", "ABB", "NAB", "DRI", "DDV", "SBS"
+]
+
+VN_STOCK_NAMES = {
+    "VIB": "Ngân hàng TMCP Quốc tế Việt Nam",
+    "VCB": "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)",
+    "HPG": "Tập đoàn Hòa Phát",
+    "FPT": "Tập đoàn FPT",
+    "VNM": "Công ty Cổ phần Sữa Việt Nam (Vinamilk)",
+    "SSI": "Công ty Cổ phần Chứng khoán SSI",
+    "MWG": "Công ty Cổ phần Đầu tư Thế Giới Di Động",
+    "TCB": "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)",
+    "MBB": "Ngân hàng TMCP Quân đội (MBBank)",
+    "VHM": "Công ty Cổ phần Vinhomes",
+    "VIC": "Tập đoàn Vingroup",
+    "BID": "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV)",
+    "CTG": "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+    "VPB": "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+    "STB": "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)",
+    "HDB": "Ngân hàng TMCP Phát triển TP.HCM (HDBank)",
+    "TPB": "Ngân hàng TMCP Tiên Phong (TPBank)",
+    "SHB": "Ngân hàng TMCP Sài Gòn - Hà Nội",
+    "LPB": "Ngân hàng TMCP Lộc Phát Việt Nam (LPBank)",
+    "MSB": "Ngân hàng TMCP Hàng Hải Việt Nam",
+    "OCB": "Ngân hàng TMCP Phương Đông",
+    "EIB": "Ngân hàng TMCP Xuất Nhập khẩu Việt Nam (Eximbank)",
+    "DGC": "Tập đoàn Hóa chất Đức Giang",
+    "DCM": "Công ty Cổ phần Phân bón Dầu khí Cà Mau",
+    "DPM": "Tổng công ty Phân bón và Hóa chất Dầu khí (Đạm Phú Mỹ)",
+    "GEX": "Tập đoàn GELEX",
+    "DIG": "Tổng công ty Cổ phần Đầu tư Phát triển Xây dựng (DIC Corp)",
+    "DXG": "Công ty Cổ phần Tập đoàn Đất Xanh",
+    "PDR": "Công ty Cổ phần Bất động sản Phát Đạt",
+    "NVL": "Tập đoàn Đầu tư Địa ốc No Va (Novaland)",
+    "KBC": "Tổng công ty Phát triển Đô thị Kinh Bắc",
+    "KDH": "Công ty Cổ phần Đầu tư và Kinh doanh Nhà Khang Điền",
+    "NLG": "Công ty Cổ phần Đầu tư Nam Long",
+    "HSG": "Tập đoàn Hoa Sen",
+    "NKG": "Công ty Cổ phần Thép Nam Kim",
+    "VCI": "Công ty Cổ phần Chứng khoán Vietcap",
+    "HCM": "Công ty Cổ phần Chứng khoán TP.HCM (HSC)",
+    "VND": "Công ty Cổ phần Chứng khoán VNDIRECT",
+    "PNJ": "Công ty Cổ phần Vàng bạc Đá quý Phú Nhuận",
+    "FRT": "Công ty Cổ phần Bán lẻ Kỹ thuật số FPT (Long Châu)",
+    "DGW": "Công ty Cổ phần Thế Giới Số (Digiworld)",
+    "REE": "Công ty Cổ phần Cơ Điện Lạnh REE",
+    "POW": "Tổng công ty Điện lực Dầu khí Việt Nam (PV Power)",
+    "GAS": "Tổng công ty Khí Việt Nam (PV GAS)",
+    "PLX": "Tập đoàn Xăng dầu Việt Nam (Petrolimex)",
+    "SAB": "Tổng công ty Bia - Rượu - Nước giải khát Sài Gòn (Sabeco)",
+    "VRE": "Công ty Cổ phần Vincom Retail",
+    "VJC": "Công ty Cổ phần Hàng không Vietjet",
+    "BCM": "Tổng công ty Đầu tư và Phát triển Công nghiệp (Becamex IDC)",
+    "GVR": "Tập đoàn Công nghiệp Cao su Việt Nam",
+    "BVH": "Tập đoàn Bảo Việt",
+    "SSB": "Ngân hàng TMCP Đông Nam Á (SeABank)",
+    "HAH": "Công ty Cổ phần Vận tải và Xếp dỡ Hải An",
+    "VSC": "Công ty Cổ phần Container Việt Nam (Viconship)",
+    "PC1": "Tập đoàn PC1",
+    "HAG": "Công ty Cổ phần Hoàng Anh Gia Lai",
+    "SHS": "Công ty Cổ phần Chứng khoán Sài Gòn - Hà Nội",
+    "MBS": "Công ty Cổ phần Chứng khoán MB",
+    "CEO": "Tập đoàn C.E.O",
+    "PVS": "Tổng công ty Cổ phần Dịch vụ Kỹ thuật Dầu khí Việt Nam",
+    "IDC": "Tổng công ty IDICO",
+    "HUT": "Công ty Cổ phần Tasco",
+    "BSI": "Công ty Cổ phần Chứng khoán BIDV",
+    "TNG": "Công ty Cổ phần Đầu tư và Thương mại TNG",
+    "VCS": "Công ty Cổ phần Vicostone",
+    "BSR": "Công ty Cổ phần Lọc Hóa dầu Bình Sơn",
+    "MCH": "Công ty Cổ phần Hàng tiêu dùng Masan",
+    "VEA": "Tổng công ty Máy động lực và Máy nông nghiệp Việt Nam",
+    "VGI": "Tổng công ty Cổ phần Đầu tư Quốc tế Viettel (Viettel Global)",
+    "ACV": "Tổng công ty Cảng hàng không Việt Nam",
+    "QNS": "Công ty Cổ phần Đường Quảng Ngãi",
+    "OIL": "Tổng công ty Dầu Việt Nam (PVOIL)",
+}
 
 
 def render_detail_analysis_page():
     """Hiển thị toàn bộ nội dung trang Phân Tích Chi Tiết & Dự Báo."""
     st.title("🔍 Phân Tích Kỹ Thuật & Dự Báo Xu Hướng Giá")
-    st.caption("Biểu đồ nến tương tác Plotly, Bộ chỉ báo kỹ thuật (RSI, MACD, MA, Bollinger) và Mô phỏng Monte Carlo xác suất")
+    st.caption("Biểu đồ nến tương tác Plotly & TradingView, Bộ chỉ báo kỹ thuật chuyên sâu và Mô phỏng xác suất Monte Carlo")
 
     fav_list = watchlist_db.get_ticker_list()
     if not fav_list:
         fav_list = DEFAULT_TICKERS
 
-    default_sym_idx = 0
-    if "target_sym" in st.session_state and st.session_state["target_sym"] in fav_list:
-        default_sym_idx = fav_list.index(st.session_state["target_sym"])
+    # 1. Bộ lọc nhóm sàn / danh mục Việt Nam (người dùng bật/tắt linh hoạt theo nhu cầu)
+    group_options = ["⭐ Watchlist", "🏆 VN30", "🏛️ Sàn HOSE", "🏛️ Sàn HNX", "🏛️ Sàn UPCOM"]
+    selected_groups = st.pills(
+        "🇻🇳 **Bộ lọc sàn & danh mục Việt Nam (Bật / tắt để lọc bớt hoặc mở rộng danh sách):**",
+        options=group_options,
+        default=["⭐ Watchlist", "🏆 VN30", "🏛️ Sàn HOSE"],
+        selection_mode="multi",
+        key="detail_market_groups_pills",
+        help="Bật hoặc tắt từng nhóm sàn (HOSE, HNX, UPCOM, VN30, Watchlist) để hiển thị danh sách tương ứng."
+    )
 
-    t_col1, t_col2, t_col3 = st.columns([2, 1, 1])
-    selected_ticker = t_col1.selectbox("Chọn mã từ Watchlist:", fav_list, index=default_sym_idx)
-    manual_ticker = t_col2.text_input("Hoặc nhập mã bất kỳ:").strip().upper()
-    active_sym = manual_ticker if manual_ticker else selected_ticker
+    active_groups = selected_groups if selected_groups else group_options
 
-    forecast_days = t_col3.slider("Số phiên dự báo:", min_value=3, max_value=15, value=7)
+    pool = []
+    if "⭐ Watchlist" in active_groups:
+        pool.extend(fav_list)
+    if "🏆 VN30" in active_groups:
+        pool.extend(VN30_LIST)
+    if "🏛️ Sàn HOSE" in active_groups:
+        pool.extend(HOSE_LIST)
+    if "🏛️ Sàn HNX" in active_groups:
+        pool.extend(HNX_LIST)
+    if "🏛️ Sàn UPCOM" in active_groups:
+        pool.extend(UPCOM_LIST)
+
+    # Lọc danh sách duy nhất giữ đúng thứ tự ưu tiên
+    filtered_options = []
+    seen = set()
+    for s in pool:
+        s_clean = s.strip().upper()
+        if s_clean not in seen:
+            seen.add(s_clean)
+            filtered_options.append(s_clean)
+
+    # 2. Xử lý đồng bộ mã active an toàn (không bị ghi đè ngược khi người dùng chọn mã)
+    current_sym = st.session_state.get("target_sym")
+    if not current_sym:
+        current_sym = "VIB" if "VIB" in filtered_options else (filtered_options[0] if filtered_options else "VIB")
+        st.session_state["target_sym"] = current_sym
+
+    current_sym = current_sym.strip().upper()
+    if current_sym not in filtered_options:
+        filtered_options.insert(0, current_sym)
+
+    # 3. Giao diện Chọn & Tìm kiếm mã linh hoạt
+    c_sel, c_quick, c_fc = st.columns([2.5, 1.3, 1.0])
+
+    def format_stock_label(sym: str) -> str:
+        is_fav = sym in fav_list
+        star = "⭐ " if is_fav else ""
+        if sym in HNX_LIST:
+            san = "HNX"
+        elif sym in UPCOM_LIST:
+            san = "UPCOM"
+        else:
+            san = "HOSE"
+        return f"{star}{sym} ({san})"
+
+    curr_idx = filtered_options.index(current_sym) if current_sym in filtered_options else 0
+    selected_from_box = c_sel.selectbox(
+        "🔍 Chọn mã trong nhóm đã lọc:",
+        options=filtered_options,
+        index=curr_idx,
+        format_func=format_stock_label,
+        key="detail_stock_selectbox",
+        help="Danh sách mã thuộc các nhóm sàn bạn đã bật ở trên. Gõ trực tiếp ký tự mã (VD: VIB, HPG) để tìm chính xác."
+    )
+
+    quick_input = c_quick.text_input(
+        "⚡ Nhập nhanh mã bất kỳ:",
+        placeholder="Gõ VIB, HPG, SHS...",
+        help="Gõ trực tiếp mã bất kỳ (không phân biệt chữ hoa hay chữ thường) rồi nhấn Enter để chuyển ngay lập tức.",
+        key="detail_quick_code_input",
+    )
+
+    # Xác định mã active cuối cùng
+    active_sym = current_sym
+    if quick_input and quick_input.strip():
+        quick_clean = quick_input.strip().upper()
+        if quick_clean != current_sym:
+            active_sym = quick_clean
+            st.session_state["target_sym"] = active_sym
+            st.rerun()
+    elif selected_from_box and selected_from_box != current_sym:
+        active_sym = selected_from_box
+        st.session_state["target_sym"] = active_sym
+        st.rerun()
+
+    forecast_days = c_fc.slider("Số phiên dự báo:", min_value=3, max_value=15, value=7)
+
+    # Hiển thị tên công ty và sàn của mã đang chọn
+    curr_san = "HNX" if active_sym in HNX_LIST else ("UPCOM" if active_sym in UPCOM_LIST else "HOSE")
+    curr_name = VN_STOCK_NAMES.get(active_sym, "Doanh nghiệp niêm yết")
+    st.caption(f"🏢 **{active_sym}** — {curr_name} *(Sàn {curr_san})*")
 
     if active_sym:
         # Lấy dữ liệu nến lịch sử và tính chỉ báo (được lưu cache 300s giúp chuyển tab cực nhanh)
@@ -110,60 +300,240 @@ def render_detail_analysis_page():
         ])
 
         with tab_chart:
-            # 1. Bộ lọc phạm vi thời gian hiển thị & phiên tham chiếu
-            filter_col1, filter_col2 = st.columns([3, 2])
-            with filter_col1:
-                candle_range_mode = st.radio(
-                    "Khung thời gian nến:",
-                    ["Toàn bộ lịch sử (180 phiên)", "1 Tháng (~20 phiên)", "3 Tháng (~60 phiên)", "6 Tháng (~120 phiên)", "Tùy chỉnh số phiên"],
-                    index=0,
-                    horizontal=True,
-                    key=f"candle_mode_{active_sym}",
-                )
-            with filter_col2:
-                if candle_range_mode == "1 Tháng (~20 phiên)":
-                    n_candles = 20
-                elif candle_range_mode == "3 Tháng (~60 phiên)":
-                    n_candles = 60
-                elif candle_range_mode == "6 Tháng (~120 phiên)":
-                    n_candles = 120
-                elif candle_range_mode == "Tùy chỉnh số phiên":
-                    n_candles = st.slider(
-                        "Số phiên hiển thị:",
-                        min_value=5,
-                        max_value=180,
-                        value=30,
-                        step=5,
-                        help="Chọn số phiên gần nhất để phóng to hành động giá nến",
-                        key=f"candle_slider_{active_sym}",
-                    )
-                else:
-                    n_candles = None
+            # Lựa chọn giữa Biểu đồ TradingView nội bộ (chạy 100% trên máy) và Biểu đồ Plotly AI (15+ chỉ báo)
+            chart_view_mode = st.radio(
+                "Chế độ hiển thị biểu đồ kỹ thuật:",
+                [
+                    "⚡ Biểu Đồ TradingView Nội Bộ (Chạy 100% trên máy, Dữ liệu VPS, Tự động co giãn Y [A])",
+                    "📊 Biểu Đồ Plotly AI & Tùy Biến 15+ Chỉ Báo Kỹ Thuật (Chuyên sâu)",
+                ],
+                index=0,
+                horizontal=True,
+                key=f"chart_view_mode_{active_sym}",
+                help="Biểu đồ TradingView nội bộ sử dụng chính công nghệ đồ họa Canvas của TradingView chạy trực tiếp trên máy bạn với dữ liệu VPS thật, tự động co giãn nến cao to và kéo thả trục giá Y tự do.",
+            )
 
-            # 2. Tùy chọn hiển thị chỉ báo & đường tham chiếu
-            c_opt1, c_opt2, c_opt3, c_opt4, c_opt5, c_opt6 = st.columns(6)
-            s_sma = c_opt1.checkbox("SMA (20, 50)", value=True)
-            s_sma200 = c_opt2.checkbox("SMA 200 (Dài)", value=True)
-            s_bb = c_opt3.checkbox("Bollinger Bands", value=True)
-            s_rsi = c_opt4.checkbox("Chỉ số RSI (14)", value=True)
-            s_macd = c_opt5.checkbox("Chỉ báo MACD", value=True)
-            s_ref = c_opt6.checkbox("Giá Tham Chiếu", value=True)
+            # 🎛️ BỘ TÙY CHỌN BẬT / TẮT 15+ CHỈ BÁO KỸ THUẬT (DÙNG CHUNG CHO CẢ TRADINGVIEW CANVAS & PLOTLY)
+            with st.expander("🎛️ **BỘ TÙY CHỌN BẬT / TẮT 15+ CHỈ BÁO KỸ THUẬT (Tích chọn để hiển thị ngay trên biểu đồ)**", expanded=True):
+                st.caption("⚡ **Cấu hình nhanh bộ chỉ báo:**")
+                pr1, pr2, pr3, pr4, pr5 = st.columns(5)
+                if pr1.button("🌟 Mặc định", key=f"btn_pre_def_{active_sym}", help="SMA (10, 20, 50, 100, 200), BB, Volume, RSI, MACD"):
+                    st.session_state[f"ind_sma_s_{active_sym}"] = True
+                    st.session_state[f"ind_sma_m_{active_sym}"] = True
+                    st.session_state[f"ind_sma_l_{active_sym}"] = True
+                    st.session_state[f"ind_ema_{active_sym}"] = False
+                    st.session_state[f"ind_bb_{active_sym}"] = True
+                    st.session_state[f"ind_ichi_{active_sym}"] = False
+                    st.session_state[f"ind_sar_{active_sym}"] = False
+                    st.session_state[f"ind_vwap_{active_sym}"] = False
+                    st.session_state[f"ind_ref_{active_sym}"] = True
+                    st.session_state[f"ind_vol_{active_sym}"] = True
+                    st.session_state[f"ind_rsi_{active_sym}"] = True
+                    st.session_state[f"ind_macd_{active_sym}"] = True
+                    st.session_state[f"ind_stoch_{active_sym}"] = False
+                    st.session_state[f"ind_mfi_{active_sym}"] = False
+                    st.session_state[f"ind_atr_{active_sym}"] = False
+                    st.session_state[f"ind_obv_{active_sym}"] = False
+                    st.rerun()
+
+                if pr2.button("📈 Xu hướng", key=f"btn_pre_trend_{active_sym}", help="Bật tất cả đường MA, EMA, Bollinger Bands, Ichimoku, SAR, VWAP"):
+                    st.session_state[f"ind_sma_s_{active_sym}"] = True
+                    st.session_state[f"ind_sma_m_{active_sym}"] = True
+                    st.session_state[f"ind_sma_l_{active_sym}"] = True
+                    st.session_state[f"ind_ema_{active_sym}"] = True
+                    st.session_state[f"ind_bb_{active_sym}"] = True
+                    st.session_state[f"ind_ichi_{active_sym}"] = True
+                    st.session_state[f"ind_sar_{active_sym}"] = True
+                    st.session_state[f"ind_vwap_{active_sym}"] = True
+                    st.session_state[f"ind_ref_{active_sym}"] = True
+                    st.session_state[f"ind_vol_{active_sym}"] = True
+                    st.session_state[f"ind_rsi_{active_sym}"] = False
+                    st.session_state[f"ind_macd_{active_sym}"] = False
+                    st.session_state[f"ind_stoch_{active_sym}"] = False
+                    st.session_state[f"ind_mfi_{active_sym}"] = False
+                    st.session_state[f"ind_atr_{active_sym}"] = False
+                    st.session_state[f"ind_obv_{active_sym}"] = False
+                    st.rerun()
+
+                if pr3.button("⚡ Động lượng & Sóng", key=f"btn_pre_mom_{active_sym}", help="Bật toàn bộ Volume, RSI, MACD, Stochastic, MFI, ATR, OBV"):
+                    st.session_state[f"ind_sma_s_{active_sym}"] = True
+                    st.session_state[f"ind_sma_m_{active_sym}"] = False
+                    st.session_state[f"ind_sma_l_{active_sym}"] = False
+                    st.session_state[f"ind_ema_{active_sym}"] = False
+                    st.session_state[f"ind_bb_{active_sym}"] = False
+                    st.session_state[f"ind_ichi_{active_sym}"] = False
+                    st.session_state[f"ind_sar_{active_sym}"] = False
+                    st.session_state[f"ind_vwap_{active_sym}"] = False
+                    st.session_state[f"ind_ref_{active_sym}"] = True
+                    st.session_state[f"ind_vol_{active_sym}"] = True
+                    st.session_state[f"ind_rsi_{active_sym}"] = True
+                    st.session_state[f"ind_macd_{active_sym}"] = True
+                    st.session_state[f"ind_stoch_{active_sym}"] = True
+                    st.session_state[f"ind_mfi_{active_sym}"] = True
+                    st.session_state[f"ind_atr_{active_sym}"] = True
+                    st.session_state[f"ind_obv_{active_sym}"] = True
+                    st.rerun()
+
+                if pr4.button("🚀 Bật tất cả", key=f"btn_pre_all_{active_sym}", help="Hiển thị toàn bộ 15+ chỉ báo kỹ thuật"):
+                    st.session_state[f"ind_sma_s_{active_sym}"] = True
+                    st.session_state[f"ind_sma_m_{active_sym}"] = True
+                    st.session_state[f"ind_sma_l_{active_sym}"] = True
+                    st.session_state[f"ind_ema_{active_sym}"] = True
+                    st.session_state[f"ind_bb_{active_sym}"] = True
+                    st.session_state[f"ind_ichi_{active_sym}"] = True
+                    st.session_state[f"ind_sar_{active_sym}"] = True
+                    st.session_state[f"ind_vwap_{active_sym}"] = True
+                    st.session_state[f"ind_ref_{active_sym}"] = True
+                    st.session_state[f"ind_vol_{active_sym}"] = True
+                    st.session_state[f"ind_rsi_{active_sym}"] = True
+                    st.session_state[f"ind_macd_{active_sym}"] = True
+                    st.session_state[f"ind_stoch_{active_sym}"] = True
+                    st.session_state[f"ind_mfi_{active_sym}"] = True
+                    st.session_state[f"ind_atr_{active_sym}"] = True
+                    st.session_state[f"ind_obv_{active_sym}"] = True
+                    st.rerun()
+
+                if pr5.button("🧹 Nến thuần túy", key=f"btn_pre_clean_{active_sym}", help="Chỉ hiển thị nến và khối lượng giao dịch"):
+                    st.session_state[f"ind_sma_s_{active_sym}"] = False
+                    st.session_state[f"ind_sma_m_{active_sym}"] = False
+                    st.session_state[f"ind_sma_l_{active_sym}"] = False
+                    st.session_state[f"ind_ema_{active_sym}"] = False
+                    st.session_state[f"ind_bb_{active_sym}"] = False
+                    st.session_state[f"ind_ichi_{active_sym}"] = False
+                    st.session_state[f"ind_sar_{active_sym}"] = False
+                    st.session_state[f"ind_vwap_{active_sym}"] = False
+                    st.session_state[f"ind_ref_{active_sym}"] = True
+                    st.session_state[f"ind_vol_{active_sym}"] = True
+                    st.session_state[f"ind_rsi_{active_sym}"] = False
+                    st.session_state[f"ind_macd_{active_sym}"] = False
+                    st.session_state[f"ind_stoch_{active_sym}"] = False
+                    st.session_state[f"ind_mfi_{active_sym}"] = False
+                    st.session_state[f"ind_atr_{active_sym}"] = False
+                    st.session_state[f"ind_obv_{active_sym}"] = False
+                    st.rerun()
+
+                col_ov, col_sub = st.columns([1, 1])
+                with col_ov:
+                    st.markdown("###### 📈 **Chỉ báo trên nến giá (Price Overlays)**")
+                    o1, o2, o3 = st.columns(3)
+                    s_sma_short = o1.checkbox("SMA (10, 20)", value=True, help="SMA10 (vàng), SMA20 (cam) - Xu hướng ngắn hạn", key=f"ind_sma_s_{active_sym}")
+                    s_sma_med = o2.checkbox("SMA (50, 100)", value=True, help="SMA50 (xanh dương), SMA100 (tím) - Xu hướng trung hạn", key=f"ind_sma_m_{active_sym}")
+                    s_sma200 = o3.checkbox("SMA 200 (Dài)", value=True, help="SMA200 (hồng) - Đại xu hướng dài hạn", key=f"ind_sma_l_{active_sym}")
+
+                    o4, o5, o6 = st.columns(3)
+                    s_ema = o4.checkbox("EMA (9, 21, 50, 200)", value=False, help="EMA phản ứng giá nhạy bén hơn SMA", key=f"ind_ema_{active_sym}")
+                    s_bb = o5.checkbox("Bollinger Bands", value=True, help="Dải biến động 20 kỳ, 2 độ lệch chuẩn", key=f"ind_bb_{active_sym}")
+                    s_ichimoku = o6.checkbox("Mây Ichimoku", value=False, help="Tenkan, Kijun & Mây Kumo Span A/B", key=f"ind_ichi_{active_sym}")
+
+                    o7, o8, o9 = st.columns(3)
+                    s_sar = o7.checkbox("Parabolic SAR", value=False, help="Điểm chấm tím báo đảo chiều & Trailing Stop", key=f"ind_sar_{active_sym}")
+                    s_vwap = o8.checkbox("VWAP", value=False, help="Giá bình quân gia quyền khối lượng", key=f"ind_vwap_{active_sym}")
+                    s_ref = o9.checkbox("Giá Tham Chiếu", value=True, help="Đường vàng chấm ngang giá tham chiếu", key=f"ind_ref_{active_sym}")
+
+                with col_sub:
+                    st.markdown("###### 📊 **Chỉ báo Động lượng & Dao động (Sub-panels bên dưới)**")
+                    u1, u2, u3 = st.columns(3)
+                    s_vol = u1.checkbox("Khối lượng (Volume)", value=True, help="Cột Volume + Đường Vol SMA20", key=f"ind_vol_{active_sym}")
+                    s_rsi = u2.checkbox("Chỉ số RSI (14)", value=True, help="Sức mạnh tương đối kèm vùng 70/30/50", key=f"ind_rsi_{active_sym}")
+                    s_macd = u3.checkbox("Chỉ báo MACD", value=True, help="MACD (12, 26, 9), Signal & Histogram", key=f"ind_macd_{active_sym}")
+
+                    u4, u5, u6 = st.columns(3)
+                    s_stoch = u4.checkbox("Stochastic (14, 3)", value=False, help="Dao động ngẫu nhiên %K, %D (80/20)", key=f"ind_stoch_{active_sym}")
+                    s_mfi = u5.checkbox("Dòng tiền MFI (14)", value=False, help="Money Flow Index - RSI khối lượng (80/20)", key=f"ind_mfi_{active_sym}")
+                    s_atr = u6.checkbox("Biến động ATR (14)", value=False, help="Average True Range - Đo độ biến động giá", key=f"ind_atr_{active_sym}")
+
+                    u7, _, _ = st.columns(3)
+                    s_obv = u7.checkbox("Khối lượng Cân bằng OBV", value=False, help="On-Balance Volume - Đo dòng tiền gom/xả", key=f"ind_obv_{active_sym}")
 
             ref_p = quote.get("ref_price") or quote.get("price")
-            chart_fig = create_candlestick_chart(
-                df_indicators,
-                active_sym,
-                show_sma=s_sma,
-                show_sma200=s_sma200,
-                show_bb=s_bb,
-                show_rsi=s_rsi,
-                show_macd=s_macd,
-                n_sessions=n_candles,
-                show_ref_line=s_ref,
-                ref_price=ref_p,
-            )
-            st.caption("🔍 **Mẹo tương tác biểu đồ:** **Giữ chuột trái kéo (Pan)** để trượt biểu đồ qua lại | **Lăn con lăn chuột (Mouse Scroll)** để Phóng to / Thu nhỏ | **Nhấp đúp chuột (Double click)** để Reset về ban đầu | Bấm **⛶ (Fullscreen)** góc trên phải để mở Toàn màn hình.")
-            st.plotly_chart(chart_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
+
+            if "TradingView Nội Bộ" in chart_view_mode:
+                st.caption(
+                    "💡 **Công nghệ TradingView Canvas nội bộ (Chạy trực tiếp trên máy của bạn):** Sử dụng 100% dữ liệu nến thật từ VPS (không phụ thuộc web ngoài, không bị HOSE chặn). "
+                    "Tự động co giãn nến cao to theo trục Y (`[A]` Auto-Scale), nhấp chuột vào trục giá bên phải kéo lên/xuống để co giãn chiều cao nến, lăn chuột để zoom 60 FPS."
+                )
+                render_lightweight_tv_chart(
+                    df_indicators,
+                    active_sym,
+                    show_sma_short=s_sma_short,
+                    show_sma_med=s_sma_med,
+                    show_sma200=s_sma200,
+                    show_ema=s_ema,
+                    show_bb=s_bb,
+                    show_ichi=s_ichimoku,
+                    show_sar=s_sar,
+                    show_vwap=s_vwap,
+                    show_ref_line=s_ref,
+                    ref_price=ref_p,
+                    show_vol=s_vol,
+                    show_rsi=s_rsi,
+                    show_macd=s_macd,
+                    show_stoch=s_stoch,
+                    show_mfi=s_mfi,
+                    show_atr=s_atr,
+                    show_obv=s_obv,
+                    height=520,
+                )
+                st.caption(
+                    f"🌐 *Cần mở web ngoài:* [↗️ Xem trực tiếp mã {active_sym} trên TradingView.com chính thức](https://vn.tradingview.com/symbols/HOSE-{active_sym}/)"
+                )
+            else:
+                # 1. Bộ lọc phạm vi thời gian hiển thị cho Plotly
+                filter_col1, filter_col2 = st.columns([3, 2])
+                with filter_col1:
+                    candle_range_mode = st.radio(
+                        "Khung thời gian nến:",
+                        ["1 Tháng (~20 phiên)", "2 Tuần (~10 phiên)", "3 Tháng (~60 phiên)", "6 Tháng (~120 phiên)", "Toàn bộ lịch sử (180 phiên)", "Tùy chỉnh số phiên"],
+                        index=0,
+                        horizontal=True,
+                        key=f"candle_mode_{active_sym}",
+                    )
+                with filter_col2:
+                    if candle_range_mode == "2 Tuần (~10 phiên)":
+                        n_candles = 10
+                    elif candle_range_mode == "1 Tháng (~20 phiên)":
+                        n_candles = 20
+                    elif candle_range_mode == "3 Tháng (~60 phiên)":
+                        n_candles = 60
+                    elif candle_range_mode == "6 Tháng (~120 phiên)":
+                        n_candles = 120
+                    elif candle_range_mode == "Tùy chỉnh số phiên":
+                        n_candles = st.slider(
+                            "Số phiên hiển thị:",
+                            min_value=5,
+                            max_value=180,
+                            value=20,
+                            step=5,
+                            help="Chọn số phiên gần nhất để phóng to hành động giá nến",
+                            key=f"candle_slider_{active_sym}",
+                        )
+                    else:
+                        n_candles = None
+
+                chart_fig = create_candlestick_chart(
+                    df_indicators,
+                    active_sym,
+                    show_sma_short=s_sma_short,
+                    show_sma_med=s_sma_med,
+                    show_sma200=s_sma200,
+                    show_ema=s_ema,
+                    show_bb=s_bb,
+                    show_ichimoku=s_ichimoku,
+                    show_sar=s_sar,
+                    show_vwap=s_vwap,
+                    show_ref_line=s_ref,
+                    ref_price=ref_p,
+                    show_volume=s_vol,
+                    show_rsi=s_rsi,
+                    show_macd=s_macd,
+                    show_stoch=s_stoch,
+                    show_mfi=s_mfi,
+                    show_atr=s_atr,
+                    show_obv=s_obv,
+                    n_sessions=n_candles,
+                )
+                st.caption("🔍 **Mẹo tương tác chuẩn TradingView:** **Lăn con lăn chuột (Scroll)** trên nến để phóng to/thu nhỏ cả 2 chiều (X & Y) | **Rê chuột vào trục giá bên trái & lăn/kéo** để co giãn riêng chiều cao Y | **Quét chuột chọn vùng (Box Zoom)** để phóng to vùng giao cắt MA | **Nhấp đúp chuột** để Reset về ban đầu.")
+                st.plotly_chart(chart_fig, width="stretch", config=PLOTLY_CONFIG, on_select="ignore")
 
             # Khối thông tin Hệ số Beta & Tín hiệu kỹ thuật chuyên sâu
             beta_col, sig_col = st.columns([1.2, 1.8])
